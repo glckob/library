@@ -254,6 +254,7 @@ select:focus {
             left: 1.27cm;
             right: 1.27cm;
             height: 3cm;
+            background-color: white !important; 
         }
         .print-header-content {
             display: flex;
@@ -291,9 +292,8 @@ select:focus {
             padding: 6px;
         }
         thead {
-            background-color: #E5E7EB !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            background-color: transparent !important; /* MODIFICATION: Force transparent background */
+            color: black !important; /* Ensure text is black */
         }
         tr {
            page-break-inside: avoid;
