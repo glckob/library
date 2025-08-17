@@ -154,19 +154,17 @@ select:focus {
   border: 1px solid #000;
 }
 
-/* Style for the photo placeholder when no image is available */
 #page-student-cards .no-photo {
     background-color: transparent;
     border: 1px solid #000;
 }
 
-
 #page-student-cards .stamp {
   position: absolute;
   bottom: 50px;
   right: -100px;
-  width: 500px; /* កែប្រែទំហំនៅទីនេះ */
-  height: 80px; /* កំណត់ height ជា auto ដើម្បីរក្សាសមាមាត្រ */
+  width: 500px;
+  height: 80px;
   opacity: 1;
   z-index: 2;
 }
@@ -183,61 +181,79 @@ select:focus {
     transition: opacity 0.5s;
 }
 
-/* Hide print header by default */
 #print-header {
     display: none;
 }
 
-/* ========== START: NEW PRINT STYLES ========== */
+/* ========== START: REVISED PRINT STYLES ========== */
 @media print {
-    @page {
-        size: A4;
-        margin: 1.27cm; /* Default narrow margin for reports */
-    }
-
     /* --- General Print Setup --- */
     body {
         background-color: white !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
-    
-    #auth-container, #sidebar, .no-print {
+
+    /* --- Hide ALL non-printable elements FORCEFULLY --- */
+    #auth-container,
+    #sidebar,
+    .no-print,
+    #book-modal,
+    #location-modal,
+    #class-return-modal,
+    #class-loan-edit-modal,
+    #student-modal,
+    #password-confirm-modal,
+    #loading-overlay {
         display: none !important;
+        visibility: hidden !important;
     }
 
     /* --- STYLES FOR ALL REPORTS (NOT STUDENT CARDS) --- */
     body[class*="printing-page-"]:not(.printing-page-student-cards) {
-        /* This is the FIX for the one-page scroll issue */
+        @page {
+            size: A4;
+            margin: 1.27cm;
+        }
+
+        /* Reset layout for printing */
         #app-container,
         #app-container > .flex,
-        .flex-1.flex.flex-col.overflow-hidden,
-        main {
+        .flex-1.flex.flex-col.overflow-hidden {
+            display: block !important;
             height: auto !important;
             overflow: visible !important;
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background-color: white !important; /* FIX: White background for content area */
-        }
-        main {
-            padding-top: 3cm !important; /* Make space for the absolute header */
         }
         
-        /* Make only the main content and header visible */
-        * { visibility: hidden; }
-        main, main *, #print-header, #print-header * { visibility: visible; }
-        .no-print, .no-print * { visibility: hidden !important; }
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            padding-top: 3.5cm !important; 
+        }
+
+        /* Hide everything, then reveal only the print header and main content */
+        body > * {
+            visibility: hidden !important;
+        }
+        #print-header, main {
+            visibility: visible !important;
+        }
+        main * {
+            visibility: visible !important;
+        }
+        main .no-print, main .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+        }
 
         /* Report Header Styles */
         #print-header {
             display: block !important;
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            padding: 0.5cm 1.27cm 0 1.27cm;
-            background-color: white !important; /* FIX: White background for header */
+            top: 0.5cm;
+            left: 1.27cm;
+            right: 1.27cm;
+            height: 3cm;
         }
         .print-header-content {
             display: flex;
@@ -261,11 +277,87 @@ select:focus {
             font-size: 12pt;
         }
         
-        /* Table styles for reports */
+        /* START: FIX FOR SCROLLBAR AND TABLE BORDERS */
+        .overflow-x-auto {
+            overflow: visible !important;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 10pt;
         }
         th, td {
-            border: 1px solid #9
+            border: 1px solid #999 !important; /* Force border */
+            padding: 6px;
+        }
+        thead {
+            background-color: #E5E7EB !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        tr {
+           page-break-inside: avoid;
+        }
+        /* END: FIX FOR SCROLLBAR AND TABLE BORDERS */
+    }
+
+    /* --- START: FINAL FIX FOR STUDENT CARD PRINTING --- */
+    body.printing-page-student-cards {
+        @page {
+            size: A4 portrait;
+            margin: 2.5mm; /* Minimal margin for cards */
+        }
+
+        /* Reset body for printing */
+        margin: 0 !important;
+        padding: 0 !important;
+
+        /* Hide everything on the page by default */
+        body > * {
+            display: none !important;
+        }
+
+        /* Make ONLY the #app-container and its parents visible and behave like simple blocks */
+        #app-container,
+        #app-container > .flex,
+        .flex-1.flex.flex-col.overflow-hidden,
+        main {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Now, hide all pages within main... */
+        main > .page {
+            display: none !important;
+        }
+
+        /* ...and then reveal ONLY the student card page. */
+        #page-student-cards {
+            display: block !important;
+        }
+        
+        /* VERY IMPORTANT: Override the on-screen flexbox layout for the container */
+        #student-card-container {
+            display: block !important; /* Not flex, just a simple block */
+        }
+
+        /* Make each card an inline-block element so they flow next to each other and wrap */
+        #page-student-cards .card {
+            display: inline-block; /* This is the key change */
+            vertical-align: top;  /* Align them to the top */
+            page-break-inside: avoid;
+            margin: 1mm; /* Add a small margin for cutting */
+        }
+
+        /* Hide elements not meant for printing inside the card page */
+        #page-student-cards .no-print {
+            display: none !important;
+        }
+    }
+    /* --- END: FINAL FIX FOR STUDENT CARD PRINTING --- */
+}
+/* ========== END: REVISED PRINT STYLES ========== */
+
