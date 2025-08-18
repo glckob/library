@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ខ្ចី-សង តាមថ្នាក់ - កម្មវិធីគ្រប់គ្រងបណ្ណាល័យ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Moul&family=Noto+Sans+Khmer:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="bg-gray-100">
+
+    <div id="auth-container" class="fixed inset-0 bg-gray-200 flex items-center justify-center z-50">
+        <!-- Auth content will be handled by script.js -->
+    </div>
+
+    <div id="app-container" class="hidden">
+        <div class="flex h-screen bg-gray-200">
+            <!-- Sidebar -->
+            <div id="sidebar" class="w-64 bg-gray-800 text-white flex flex-col no-print">
+                <div class="p-4 border-b border-gray-700">
+                    <h1 class="text-2xl font-bold text-center font-moul">បណ្ណាល័យខ្ញុំ</h1>
+                    <p id="sidebar-school-name" class="text-sm text-center font-moul text-gray-300 mt-1"></p>
+                </div>
+                <nav class="flex-1 px-2 py-4 space-y-2">
+                    <a href="./index.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-home mr-3"></i> ទំព័រដើម</a>
+                    <a href="./books.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-book mr-3"></i> គ្រប់គ្រងសៀវភៅ</a>
+                    <a href="./loans.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-user mr-3"></i> ខ្ចី-សង បុគ្គល</a>
+                    <a href="./class-loans.html" class="nav-link flex items-center px-4 py-2 text-white bg-gray-900 rounded-md"><i class="fas fa-users mr-3"></i> ខ្ចី-សង តាមថ្នាក់</a>
+                    <a href="./reading-log.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-book-open mr-3"></i> ចូលអាន</a>
+                    <a href="./locations.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-map-marker-alt mr-3"></i> ទីតាំងរក្សាទុក</a>
+                    <a href="./students.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-user-graduate mr-3"></i> ទិន្នន័យសិស្ស</a>
+                    <a href="./student-cards.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-id-card mr-3"></i> កាតសិស្ស</a>
+                    <a href="./settings.html" class="nav-link flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"><i class="fas fa-cog mr-3"></i> ការកំណត់</a>
+                </nav>
+                <div class="p-2 border-t border-gray-700 text-center text-xs text-gray-400 no-print">
+                    <p id="user-email" class="truncate"></p>
+                    <button id="logout-btn" class="w-full mt-2 bg-red-500 text-white py-1 rounded hover:bg-red-600">ចាកចេញ</button>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                <div id="page-class-loans" class="page">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4 no-print">បង្កើតកំណត់ត្រាខ្ចី-សង តាមថ្នាក់</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-6 no-print">
+                        <form id="class-loan-form">
+                            <!-- Form content from original file -->
+                        </form>
+                    </div>
+                    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                        <h3 class="text-xl font-bold text-gray-800 no-print">ប្រវត្តិនៃការខ្ចីតាមថ្នាក់</h3>
+                        <div class="flex items-center">
+                            <button onclick="window.printReport()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 no-print mr-2"><i class="fas fa-print mr-2"></i>បោះពុម្ព</button>
+                            <button id="print-class-loan-list-btn" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 no-print"><i class="fas fa-print mr-2"></i>បោះពុម្ពបញ្ជីខ្ចី</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6 no-print">
+                        <!-- Filter section from original file -->
+                    </div>
+                     <div class="bg-white p-4 rounded-lg shadow-md">
+                        <div id="class-loans-print-area">
+                            <h2 class="print-area text-2xl font-bold mb-4 text-center"></h2>
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-200">
+                                    <tr>
+                                        <th class="p-3">#</th>
+                                        <th class="p-3">សៀវភៅ</th>
+                                        <th class="p-3">ថ្នាក់</th>
+                                        <th class="p-3">ថ្ងៃខ្ចី</th>
+                                        <th class="p-3">ស្ថានភាពសង</th>
+                                        <th class="p-3 no-print">សកម្មភាព</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="class-loan-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="class-loan-students-print-area" class="print-area">
+                         <h2 class="print-area text-2xl font-bold mb-4 text-center"></h2>
+                         <div id="class-loan-students-table-container"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Modals and Overlays will be handled by script.js -->
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex-col items-center justify-center z-40 hidden">
+        <i class="fas fa-spinner fa-spin text-white text-5xl"></i>
+        <p class="text-white text-xl mt-4">កំពុងដំណើរការ...</p>
+    </div>
+
+    <script type="module" src="./script.js"></script>
+</body>
+</html>

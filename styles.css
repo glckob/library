@@ -1,0 +1,50 @@
+body {
+    font-family: 'Noto Sans Khmer', sans-serif;
+}
+
+h1, h2, h3, .font-koulen {
+    font-family: 'Koulen', cursive;
+}
+
+.print-area {
+    display: none;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+input[type="date"],
+select {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+    transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+    box-shadow: 0 0 0 3px rgb(96 165 250 / 0.4);
+    border-color: #3b82f6;
+    outline: none;
+}
+
+/* --- Student Card Styles --- */
+#page-student-cards .controls {
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ... (Paste the rest of your original styles.css content here) ... */
+
+@media print {
+    /* ... (Paste your original @media print styles here) ... */
+}
