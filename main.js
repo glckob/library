@@ -1,88 +1,40 @@
 // Firebase Imports
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { collection, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Local Module Imports
+// Local Module Imports from the same directory
 import { db, auth } from './firebase-config.js';
 import { setupAuthEventListeners } from './auth.js';
-import { setupUIEventListeners, navigateTo, renderAllUI, showApp, showAuth } from './ui.js';
+// ... import other functions from other files as needed
 
 // --- GLOBAL STATE ---
-let state = {
-    books: [],
-    loans: [],
-    classLoans: [],
-    locations: [],
-    students: [],
-    readingLogs: [],
-    settings: {},
-    currentUserId: null,
-    unsubscribers: []
-};
-
-// --- REALTIME LISTENERS ---
-function setupRealtimeListeners(userId) {
-    // Clear previous listeners
-    state.unsubscribers.forEach(unsub => unsub());
-    state.unsubscribers = [];
-
-    const collections = {
-        books: "books",
-        loans: "loans",
-        classLoans: "classLoans",
-        locations: "locations",
-        students: "students",
-        readingLogs: "readingLogs"
-    };
-
-    for (const [key, value] of Object.entries(collections)) {
-        const ref = collection(db, "users", userId, value);
-        const unsub = onSnapshot(ref, (snapshot) => {
-            state[key] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderAllUI(state);
-        });
-        state.unsubscribers.push(unsub);
-    }
-
-    const settingsRef = doc(db, "users", userId, "settings", "generalInfo");
-    const unsubSettings = onSnapshot(settingsRef, (doc) => {
-        state.settings = doc.exists() ? doc.data() : {};
-        renderAllUI(state);
-    });
-    state.unsubscribers.push(unsubSettings);
-}
+// ... (Your global state variables)
 
 // --- AUTH STATE CHANGE HANDLER ---
 onAuthStateChanged(auth, user => {
     if (user) {
-        state.currentUserId = user.uid;
-        document.getElementById('user-email').textContent = user.email;
-        showApp();
-        setupRealtimeListeners(state.currentUserId);
-        navigateTo('reading-log'); // Default page
+        // ... (Logic for when user is logged in)
+        // Initialize event listeners for the main app
+        setupMainAppEventListeners();
     } else {
-        state.currentUserId = null;
-        // Unsubscribe from all listeners
-        state.unsubscribers.forEach(unsub => unsub());
-        state.unsubscribers = [];
-        // Clear local data
-        Object.assign(state, {
-            books: [], loans: [], classLoans: [], locations: [],
-            students: [], readingLogs: [], settings: {}
-        });
-        showAuth();
-        renderAllUI(state); // Render empty state
+        // ... (Logic for when user is logged out)
     }
 });
 
-// --- INITIALIZATION ---
-function initialize() {
-    setupAuthEventListeners();
-    setupUIEventListeners();
+function setupMainAppEventListeners() {
+    // This is where you attach all your event listeners for buttons, forms, etc.
+    // inside the main application after the user has logged in.
+    // For example:
+    document.getElementById('add-book-btn').addEventListener('click', () => {
+        // logic to open book modal
+    });
+    // ... etc.
 }
 
-// Start the application
-initialize();
 
-// Export state to be accessible by other modules
-export { state };
+// --- INITIALIZATION ---
+function initialize() {
+    setupAuthEventListeners(); // Sets up login/register form listeners
+}
+
+initialize();
