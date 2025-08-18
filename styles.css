@@ -1,0 +1,212 @@
+/* General Body and Font Styles */
+body {
+    font-family: 'Noto Sans Khmer', sans-serif;
+}
+
+h1, h2, h3, .font-koulen {
+    font-family: 'Koulen', cursive;
+}
+
+/* Initially hide print-specific areas */
+.print-area {
+    display: none;
+}
+
+/* Styling for input fields */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+input[type="date"],
+select {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+    transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* Focus styles for input fields */
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+    box-shadow: 0 0 0 3px rgb(96 165 250 / 0.4);
+    border-color: #3b82f6;
+    outline: none;
+}
+
+/* Transition for auth container and loading overlay */
+#auth-container, #loading-overlay {
+    transition: opacity 0.5s;
+}
+
+/* Hide print header by default */
+#print-header {
+    display: none;
+}
+
+/* --- Print Styles --- */
+@media print {
+    /* General print setup */
+    body {
+        background-color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Hide all non-printable elements */
+    #auth-container,
+    #sidebar,
+    .no-print,
+    #book-modal,
+    #location-modal,
+    #class-return-modal,
+    #class-loan-edit-modal,
+    #student-modal,
+    #password-confirm-modal,
+    #loading-overlay {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Styles for all reports (not student cards) */
+    body[class*="printing-page-"]:not(.printing-page-student-cards) {
+        @page {
+            size: A4;
+            margin: 1.27cm;
+        }
+
+        /* Reset layout for printing */
+        #app-container,
+        #app-container > .flex,
+        .flex-1.flex.flex-col.overflow-hidden {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            padding-top: 3.5cm !important; 
+        }
+
+        /* Hide everything, then reveal only the print header and main content */
+        body > * {
+            visibility: hidden !important;
+        }
+        #print-header, main {
+            visibility: visible !important;
+        }
+        main * {
+            visibility: visible !important;
+        }
+        main .no-print, main .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Report Header Styles */
+        #print-header {
+            display: block !important;
+            position: absolute;
+            top: 0.5cm;
+            left: 1.27cm;
+            right: 1.27cm;
+            height: 3cm;
+            background-color: white !important; 
+        }
+        .print-header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .print-header-content .motto {
+            text-align: center;
+            font-family: 'Khmer OS Muol Light', sans-serif;
+            font-size: 14pt;
+        }
+        .print-header-content .motto p {
+            margin: 0;
+            line-height: 1.4;
+        }
+        .print-header-content .school-name {
+            width: 100%;
+            text-align: left;
+            margin-top: 5px;
+            font-family: 'Khmer OS Muol Light', sans-serif;
+            font-size: 12pt;
+        }
+        
+        /* Fix for scrollbar and table borders */
+        .overflow-x-auto {
+            overflow: visible !important;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10pt;
+        }
+        th, td {
+            border: 1px solid #999 !important;
+            padding: 6px;
+        }
+        thead, .bg-gray-200 {
+            background-color: transparent !important;
+            color: black !important;
+        }
+        tr {
+           page-break-inside: avoid;
+        }
+    }
+    
+    /* Print specific styles for class loan student list */
+    body.printing-page-class-loan-list {
+        @page {
+            size: A4 portrait;
+            margin: 1.27cm;
+        }
+
+        body > *:not(#app-container) { display: none !important; }
+        #app-container > *, 
+        .page > *:not(#class-loan-students-print-area) { display: none !important; }
+        .no-print { display: none !important; }
+        
+        #print-header,
+        #class-loan-students-print-area {
+            display: block !important;
+        }
+        #print-header,
+        #print-header * { visibility: visible !important; }
+        #class-loan-students-print-area,
+        #class-loan-students-print-area * { visibility: visible !important; }
+
+        #class-loan-students-print-area table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            font-size: 10pt;
+        }
+        #class-loan-students-print-area th, 
+        #class-loan-students-print-area td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        #class-loan-students-print-area th {
+            background-color: transparent !important;
+            font-weight: bold;
+            text-align: center;
+            color: black !important;
+        }
+
+        .print-footer {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            page-break-before: always;
+        }
+    }
+}
