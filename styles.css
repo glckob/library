@@ -291,14 +291,67 @@ select:focus {
             border: 1px solid #999 !important; /* Force border */
             padding: 6px;
         }
-        thead {
-            background-color: transparent !important; /* MODIFICATION: Force transparent background */
+        thead, .bg-gray-200 {
+            background-color: transparent !important; /* Force transparent background */
             color: black !important; /* Ensure text is black */
         }
         tr {
            page-break-inside: avoid;
         }
         /* END: FIX FOR SCROLLBAR AND TABLE BORDERS */
+    }
+    
+    /* NEW: Print specific styles for class loan student list */
+    body.printing-page-class-loan-list {
+        /* General A4 portrait setup */
+        @page {
+            size: A4 portrait;
+            margin: 1.27cm;
+        }
+
+        /* Hide all UI elements */
+        body > *:not(#app-container) { display: none !important; }
+        #app-container > *, 
+        .page > *:not(#class-loan-students-print-area) { display: none !important; }
+        .no-print { display: none !important; }
+        
+        /* Show print-only elements */
+        #print-header,
+        #class-loan-students-print-area {
+            display: block !important;
+        }
+        #print-header,
+        #print-header * { visibility: visible !important; }
+        #class-loan-students-print-area,
+        #class-loan-students-print-area * { visibility: visible !important; }
+
+        /* Style the table for printing */
+        #class-loan-students-print-area table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            font-size: 10pt;
+        }
+        #class-loan-students-print-area th, 
+        #class-loan-students-print-area td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        #class-loan-students-print-area th {
+            background-color: transparent !important; /* MODIFICATION: Force transparent background */
+            font-weight: bold;
+            text-align: center;
+            color: black !important;
+        }
+
+        /* Footer styling */
+        .print-footer {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            page-break-before: always;
+        }
     }
 
     /* --- START: FINAL FIX FOR STUDENT CARD PRINTING --- */
@@ -360,4 +413,3 @@ select:focus {
     /* --- END: FINAL FIX FOR STUDENT CARD PRINTING --- */
 }
 /* ========== END: REVISED PRINT STYLES ========== */
-
