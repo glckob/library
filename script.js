@@ -18,125 +18,94 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// --- GLOBAL STATE & DOM ELEMENTS ---
-let books = [];
-let loans = [];
-let classLoans = [];
-let locations = [];
-let students = [];
-let readingLogs = [];
-let settingsData = {};
+// --- GLOBAL STATE ---
+let books = [], loans = [], classLoans = [], locations = [], students = [], readingLogs = [], settingsData = {};
 let currentUserId = null;
-let unsubscribeBooks = () => {};
-let unsubscribeLoans = () => {};
-let unsubscribeClassLoans = () => {};
-let unsubscribeLocations = () => {};
-let unsubscribeStudents = () => {};
-let unsubscribeSettings = () => {};
-let unsubscribeReadingLogs = () => {};
-let currentScannedBooks = [];
-let currentStudentGender = '';
+let unsubscribeBooks = () => {}, unsubscribeLoans = () => {}, unsubscribeClassLoans = () => {}, unsubscribeLocations = () => {}, unsubscribeStudents = () => {}, unsubscribeSettings = () => {}, unsubscribeReadingLogs = () => {};
 
-const authContainer = document.getElementById('auth-container');
-const appContainer = document.getElementById('app-container');
-const loadingOverlay = document.getElementById('loading-overlay');
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const showRegisterBtn = document.getElementById('show-register');
-const showLoginBtn = document.getElementById('show-login');
-const logoutBtn = document.getElementById('logout-btn');
-const sidebarSchoolName = document.getElementById('sidebar-school-name');
-const pages = document.querySelectorAll('.page');
-const navLinks = document.querySelectorAll('.nav-link');
+// This function runs once the HTML document is fully loaded.
+document.addEventListener('DOMContentLoaded', () => {
 
-// --- AUTHENTICATION ---
-onAuthStateChanged(auth, user => {
-    if (user) {
-        currentUserId = user.uid;
-        document.getElementById('user-email').textContent = user.email;
-        authContainer.classList.add('hidden');
-        appContainer.classList.remove('hidden');
-        setupRealtimeListeners(currentUserId);
-        navigateTo('reading-log'); // Default page
-    } else {
-        currentUserId = null;
-        appContainer.classList.add('hidden');
-        authContainer.classList.remove('hidden');
-        unsubscribeAll();
-        clearAllData();
-        renderAll();
-    }
-});
+    // --- DOM ELEMENTS ---
+    const authContainer = document.getElementById('auth-container');
+    const appContainer = document.getElementById('app-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterBtn = document.getElementById('show-register');
+    const showLoginBtn = document.getElementById('show-login');
+    const logoutBtn = document.getElementById('logout-btn');
+    const pages = document.querySelectorAll('.page');
+    const navLinks = document.querySelectorAll('.nav-link');
 
-showRegisterBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-form-container').classList.add('hidden'); document.getElementById('register-form-container').classList.remove('hidden'); });
-showLoginBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('register-form-container').classList.add('hidden'); document.getElementById('login-form-container').classList.remove('hidden'); });
-registerForm.addEventListener('submit', (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const password = document.getElementById('register-password').value; const errorP = document.getElementById('register-error'); errorP.textContent = ''; createUserWithEmailAndPassword(auth, email, password).catch(error => { errorP.textContent = 'ការចុះឈ្មោះបានបរាជ័យ: ' + error.message; }); });
-loginForm.addEventListener('submit', (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const errorP = document.getElementById('login-error'); errorP.textContent = ''; signInWithEmailAndPassword(auth, email, password).catch(error => { errorP.textContent = 'ការចូលប្រើបានបរាជ័យ: ' + error.message; }); });
-logoutBtn.addEventListener('click', () => { signOut(auth); });
-
-function unsubscribeAll() {
-    unsubscribeBooks();
-    unsubscribeLoans();
-    unsubscribeClassLoans();
-    unsubscribeLocations();
-    unsubscribeStudents();
-    unsubscribeSettings();
-    unsubscribeReadingLogs();
-}
-
-function clearAllData() {
-    books = []; loans = []; classLoans = []; locations = []; students = []; readingLogs = []; settingsData = {};
-}
-
-// --- NAVIGATION ---
-const navigateTo = (pageId) => {
-    pages.forEach(page => page.classList.add('hidden'));
-    const targetPage = document.getElementById(`page-${pageId}`);
-    if (targetPage) {
-        targetPage.classList.remove('hidden');
-    }
-
-    navLinks.forEach(nav => {
-        if (nav.getAttribute('data-page') === pageId) {
-            nav.classList.add('bg-gray-900', 'text-white');
-            nav.classList.remove('text-gray-300');
+    // --- AUTHENTICATION ---
+    onAuthStateChanged(auth, user => {
+        if (user) {
+            currentUserId = user.uid;
+            document.getElementById('user-email').textContent = user.email;
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            setupRealtimeListeners(currentUserId);
+            navigateTo('home'); // Default page after login
         } else {
-            nav.classList.remove('bg-gray-900', 'text-white');
-            nav.classList.add('text-gray-300');
+            currentUserId = null;
+            appContainer.classList.add('hidden');
+            authContainer.classList.remove('hidden');
+            unsubscribeAll();
+            clearAllData();
+            renderAll();
         }
     });
 
-    // Auto-focus logic
-    if (pageId === 'reading-log') {
-        setTimeout(() => document.getElementById('reading-log-student-id')?.focus(), 100);
-    }
-};
+    showRegisterBtn.addEventListener('click', (e) => { /* ... */ });
+    showLoginBtn.addEventListener('click', (e) => { /* ... */ });
+    registerForm.addEventListener('submit', (e) => { /* ... */ });
+    loginForm.addEventListener('submit', (e) => { /* ... */ });
+    logoutBtn.addEventListener('click', () => { signOut(auth); });
 
-navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pageId = link.getAttribute('data-page');
-        navigateTo(pageId);
+    // --- NAVIGATION ---
+    const navigateTo = (pageId) => {
+        pages.forEach(page => page.classList.add('hidden'));
+        const targetPage = document.getElementById(`page-${pageId}`);
+        if (targetPage) {
+            targetPage.classList.remove('hidden');
+        }
+        navLinks.forEach(nav => {
+            nav.classList.toggle('bg-gray-900', nav.getAttribute('data-page') === pageId);
+            nav.classList.toggle('text-white', nav.getAttribute('data-page') === pageId);
+            nav.classList.toggle('text-gray-300', nav.getAttribute('data-page') !== pageId);
+        });
+    };
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const pageId = link.getAttribute('data-page');
+            navigateTo(pageId);
+        });
     });
-});
 
-// --- RENDERING FUNCTIONS (Paste your original functions here) ---
-const renderAll = () => { /* ... */ };
-const renderBooks = () => { /* ... */ };
-const renderLoans = () => { /* ... */ };
-// ... and so on for all render functions
+    // --- ALL OTHER FUNCTIONS AND EVENT LISTENERS ---
+    // (Paste all your other functions: renderAll, renderBooks, setupRealtimeListeners, etc. here)
+    // (Paste all your other event listeners: book-form submit, loan-form submit, etc. here)
+
+}); // End of DOMContentLoaded
+
+function unsubscribeAll() {
+    // ... (unsubscribe logic)
+}
+
+function clearAllData() {
+    // ... (clear data logic)
+}
 
 // --- FIREBASE REALTIME LISTENERS ---
-const setupRealtimeListeners = (userId) => {
-    // ... (Paste your original setupRealtimeListeners function here)
-};
+function setupRealtimeListeners(userId) {
+    // ... (Your original setupRealtimeListeners function)
+}
 
-// --- ATTACH FUNCTIONS TO WINDOW OBJECT ---
+// --- ATTACH GLOBAL FUNCTIONS ---
+// Functions called by inline onclick="..." must be on the window object.
 window.openBookModal = (id = null) => { /* ... */ };
 window.closeBookModal = () => { /* ... */ };
-// ... (Attach all other necessary functions to the window object)
-
-// --- ADD EVENT LISTENERS FOR FORMS AND BUTTONS ---
-document.getElementById('book-form')?.addEventListener('submit', async (e) => { /* ... */ });
-document.getElementById('loan-form')?.addEventListener('submit', async (e) => { /* ... */ });
-// ... (Add all other event listeners here)
+// ... (Attach all other global functions here)
