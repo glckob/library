@@ -2240,32 +2240,81 @@ document.getElementById('print-class-loan-list-btn').addEventListener('click', (
     table.appendChild(tbody);
     tableContainer.appendChild(table);
 
-    // Build the footer section
-    const footer = document.createElement('div');
-    footer.className = 'mt-8 flex flex-wrap justify-between items-start print-only print-footer';
+    // Add summary directly under the table with custom layout
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'mt-4 text-sm';
     
-    const leftSummary = document.createElement('div');
-    leftSummary.className = 'w-1/2';
-    leftSummary.innerHTML = `
-        <p class="font-semibold text-lg">សរុប៖</p>
-        <p>សិស្សសរុប៖ ${totalStudents} នាក់ (ស្រី៖ ${totalFemales} នាក់)</p>
-        ${allBookTitles.map(title => `<p>${title}៖ ${bookTotals[title] || 0} ក្បាល</p>`).join('')}
-    `;
-    footer.appendChild(leftSummary);
-
-    const rightSignature = document.createElement('div');
-    rightSignature.className = 'w-1/2 text-right';
-    const today = new Date().toLocaleDateString('km-KH');
-    rightSignature.innerHTML = `
-        <p>ធ្វើនៅ៖ ${settingsData.schoolName || 'ឈ្មោះសាលា'}</p>
-        <p>កាលបរិច្ឆេទបោះពុម្ព៖ ${today}</p>
-        <p class="mt-8 font-semibold">គ្រូបន្ទុកថ្នាក់៖</p>
-        <p class="mt-8">(ហត្ថលេខា)</p>
-    `;
-    footer.appendChild(rightSignature);
+    const todayDate = new Date();
+    const day = todayDate.getDate();
+    const monthNumber = todayDate.getMonth() + 1;
+    const year = todayDate.getFullYear();
     
-    tableContainer.appendChild(footer);
-
+    // Convert month number to Khmer month name
+    const khmerMonths = {
+        1: 'មករា', 2: 'កុម្ភៈ', 3: 'មីនា', 4: 'មេសា', 
+        5: 'ឧសភា', 6: 'មិថុនា', 7: 'កក្កដា', 8: 'សីហា',
+        9: 'កញ្ញា', 10: 'តុលា', 11: 'វិច្ឆិកា', 12: 'ធ្នូ'
+    };
+    const month = khmerMonths[monthNumber] || monthNumber;
+    
+    // Line 1: Student count on left, school info on right
+    const line1 = document.createElement('div');
+    line1.className = 'flex justify-between mb-2';
+    line1.innerHTML = `
+        <div>សិស្សសរុប៖ ${totalStudents} នាក់ (ស្រី៖ ${totalFemales} នាក់)</div>
+        <div>ធ្វើនៅ, ${settingsData.schoolName || 'ឈ្មោះសាលា'} ថ្ងៃទី ${day} ខែ ${month} ឆ្នាំ ${year}</div>
+    `;
+    
+    // Line 2: បណ្ណារក្ស positioned 3 tabs from right
+    const line2 = document.createElement('div');
+    line2.className = 'mb-2';
+    line2.style.paddingLeft = '80%';
+    line2.innerHTML = `<div>បណ្ណារក្ស</div>`;
+    
+    // Create book rows in 3 columns
+    const bookRows = [];
+    for (let i = 0; i < allBookTitles.length; i += 3) {
+        const book1 = allBookTitles[i] ? `${allBookTitles[i]}៖ ${bookTotals[allBookTitles[i]] || 0} ក្បាល` : '';
+        const book2 = allBookTitles[i + 1] ? `${allBookTitles[i + 1]}៖ ${bookTotals[allBookTitles[i + 1]] || 0} ក្បាល` : '';
+        const book3 = allBookTitles[i + 2] ? `${allBookTitles[i + 2]}៖ ${bookTotals[allBookTitles[i + 2]] || 0} ក្បាល` : '';
+        
+        const bookRow = document.createElement('div');
+        bookRow.className = 'mb-1';
+        
+        // Create book line with single spaces
+        const bookLine = [book1, book2, book3].filter(book => book).join(' ');
+        
+        bookRow.innerHTML = `<div>${bookLine}</div>`;
+        bookRows.push(bookRow);
+    }
+    
+    summaryDiv.appendChild(line1);
+    summaryDiv.appendChild(line2);
+    bookRows.forEach(row => summaryDiv.appendChild(row));
+    
+    // QR code after book summary
+    const qrDiv = document.createElement('div');
+    qrDiv.className = 'text-center mt-4';
+    const reportUrl = `${window.location.origin}${window.location.pathname}?class=${selectedClass}&report=loan`;
+    const qrId = `qr-code-container-${Date.now()}`;
+    qrDiv.innerHTML = `<div id="${qrId}" class="inline-block"></div>`;
+    
+    // Generate QR code
+    setTimeout(() => {
+        const qrContainer = document.getElementById(qrId);
+        if (qrContainer && window.QRCode) {
+            new QRCode(qrContainer, {
+                text: reportUrl,
+                width: 80,
+                height: 80,
+                colorDark: "#000000",
+                colorLight: "#ffffff"
+            });
+        }
+    }, 100);
+    
+    summaryDiv.appendChild(qrDiv);
+    tableContainer.appendChild(summaryDiv);
 
     // Set up the print title and subtitle
     const titleSpan = document.getElementById('print-report-title');
@@ -2274,13 +2323,16 @@ document.getElementById('print-class-loan-list-btn').addEventListener('click', (
     subtitle.textContent = `ថ្នាក់ទី ${selectedClass} ឆ្នាំសិក្សា ${settingsData.academicYear || 'N/A'}`;
     subtitle.classList.remove('hidden');
 
-    prepareAndPrint('printing-page-class-loan-list');
+    // Add delay to ensure DOM is fully rendered before printing
+    setTimeout(() => {
+        prepareAndPrint('printing-page-class-loan-list');
+    }, 500);
 
      // Clean up after print
     setTimeout(() => {
         subtitle.classList.add('hidden');
         tableContainer.innerHTML = '';
-    }, 100);
+    }, 1000);
 });
 
 window.onafterprint = () => {
