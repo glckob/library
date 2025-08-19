@@ -41,8 +41,6 @@ const authContainer = document.getElementById('auth-container');
 const appContainer = document.getElementById('app-container');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const showRegisterBtn = document.getElementById('show-register');
 const showLoginBtn = document.getElementById('show-login');
 const logoutBtn = document.getElementById('logout-btn');
 const sidebarSchoolName = document.getElementById('sidebar-school-name');
@@ -79,9 +77,6 @@ onAuthStateChanged(auth, user => {
     }
 });
 
-showRegisterBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-form-container').classList.add('hidden'); document.getElementById('register-form-container').classList.remove('hidden'); });
-showLoginBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('register-form-container').classList.add('hidden'); document.getElementById('login-form-container').classList.remove('hidden'); });
-registerForm.addEventListener('submit', (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const password = document.getElementById('register-password').value; const errorP = document.getElementById('register-error'); errorP.textContent = ''; createUserWithEmailAndPassword(auth, email, password).catch(error => { errorP.textContent = 'ការចុះឈ្មោះបានបរាជ័យ: ' + error.message; }); });
 loginForm.addEventListener('submit', (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const errorP = document.getElementById('login-error'); errorP.textContent = ''; signInWithEmailAndPassword(auth, email, password).catch(error => { errorP.textContent = 'ការចូលប្រើបានបរាជ័យ: ' + error.message; }); });
 logoutBtn.addEventListener('click', () => { signOut(auth); });
 
