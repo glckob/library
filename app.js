@@ -108,9 +108,6 @@ const navigateTo = (pageId) => {
     if (pageId === 'loans') {
         window.clearLoanForm();
     }
-     if (pageId === 'student-cards') {
-        renderStudentCards(); 
-    }
     if (pageId === 'reading-log') {
         window.clearReadingLogForm();
         setTimeout(() => document.getElementById('reading-log-student-id').focus(), 100);
@@ -132,7 +129,6 @@ const renderAll = () => {
     renderClassLoans();
     renderLocations();
     renderStudents();
-    renderStudentCards();
     renderReadingLogs();
     updateDashboard();
 };
@@ -487,6 +483,7 @@ const populateStudentClassFilter = () => {
 // END: NEW FUNCTION
 
 // --- STUDENT CARD PAGE ---
+// MODIFIED FUNCTION: Creates paginated containers for printing
 function renderStudentCards() {
     if (!document.getElementById('page-student-cards')) return;
 
@@ -511,12 +508,19 @@ function renderStudentCards() {
         const classKey = Object.keys(students[0]).find(k => k.includes('ថ្នាក់'));
         if (classKey) {
             const classSet = new Set(students.map(std => std[classKey]).filter(Boolean));
-            [...classSet].sort((a, b) => a.localeCompare(b, undefined, {numeric: true})).forEach(cls => {
+            const sortedClasses = [...classSet].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+            
+            sortedClasses.forEach(cls => {
                 const option = document.createElement('option');
                 option.value = cls;
                 option.textContent = cls;
                 classFilter.appendChild(option);
             });
+            
+            // Set default to the smallest class (first in sorted array)
+            if (sortedClasses.length > 0) {
+                classFilter.value = sortedClasses[0];
+            }
         }
     }
     
@@ -536,8 +540,8 @@ function renderStudentCards() {
     });
 
     loading.style.display = "none";
-    container.style.display = "flex";
-    container.innerHTML = "";
+    container.style.display = "flex"; // Keep flex for on-screen view
+    container.innerHTML = ""; // Clear previous content
 
     if (filteredStudents.length === 0) {
         container.innerHTML = `<p class="text-center text-gray-500 w-full p-4">រកមិនឃើញទិន្នន័យសិស្សទេ។</p>`;
@@ -548,7 +552,17 @@ function renderStudentCards() {
     const academicYear = settingsData.academicYear || 'YYYY-YYYY';
     const sealUrl = settingsData.sealImageUrl || '';
 
-    filteredStudents.forEach(std => {
+    const CARDS_PER_PAGE = 9;
+    let pageContainer = null;
+
+    filteredStudents.forEach((std, index) => {
+        // Create a new page container for the first card and every 9th card after that
+        if (index % CARDS_PER_PAGE === 0) {
+            pageContainer = document.createElement('div');
+            pageContainer.className = 'print-page-container'; // New class for print styling
+            container.appendChild(pageContainer);
+        }
+
         const cardDiv = document.createElement("div");
         cardDiv.className = "card";
         const qrId = `qr-${std.id}`;
@@ -588,37 +602,80 @@ function renderStudentCards() {
           </div>
           <div class="photo-wrapper">
             ${photoElement}
-            ${sealUrl ? `<img class="stamp" src="${sealUrl}" alt="Stamp" />` : ''}
           </div>
+          ${sealUrl ? `<img class="stamp" src="${sealUrl}" alt="Stamp" />` : ''}
         `;
-        container.appendChild(cardDiv);
+        
+        // Append the card to the current page container
+        pageContainer.appendChild(cardDiv);
+    });
 
-        if (studentId && window.QRCode) {
-            new QRCode(document.getElementById(qrId), {
-              text: studentId,
-              width: 70,
-              height: 70,
-              correctLevel: QRCode.CorrectLevel.H
-            });
+    // Generate QR codes and barcodes after all cards are rendered with a longer delay
+    // to ensure proper rendering before printing
+    setTimeout(() => {
+        console.log('Generating QR codes and barcodes for', filteredStudents.length, 'students');
+        // Add a small delay for each student to prevent browser from freezing
+        let processedCount = 0;
+        
+        function processNextStudent() {
+            if (processedCount >= filteredStudents.length) {
+                console.log('Finished generating all QR codes and barcodes');
+                return;
+            }
+            
+            const std = filteredStudents[processedCount];
+            processedCount++;
+            
+            const qrId = `qr-${std.id}`;
+            const barcodeId = `barcode-${std.id}`;
+            const studentId = idKey ? std[idKey] : '';
+
+            if (studentId && window.QRCode) {
+                const qrElement = document.getElementById(qrId);
+                if (qrElement) {
+                    qrElement.innerHTML = ''; // Clear any existing content
+                    try {
+                        new QRCode(qrElement, {
+                            text: studentId,
+                            width: 70,
+                            height: 70,
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    } catch (e) {
+                        console.error("QR code generation failed for ID:", studentId, e);
+                    }
+                }
+            }
+            
+            if (studentId && window.JsBarcode) {
+                try {
+                    const barcodeElement = document.getElementById(barcodeId);
+                    if (barcodeElement) {
+                        JsBarcode(`#${barcodeId}`, studentId, {
+                            format: "CODE128",
+                            height: 30,
+                            width: 1.8,
+                            displayValue: false,
+                            margin: 0
+                        });
+                    }
+                } catch (e) {
+                    console.error("Barcode generation failed for ID:", studentId, e);
+                    const barcodeElement = document.getElementById(barcodeId);
+                    if (barcodeElement) {
+                        barcodeElement.style.display = 'none';
+                    }
+                }
+            }
+            
+            // Process next student with a small delay to prevent browser freezing
+            setTimeout(processNextStudent, 10);
         }
         
-        if (studentId && window.JsBarcode) {
-             try {
-                JsBarcode(`#${barcodeId}`, studentId, {
-                    format: "CODE128",
-                    height: 30,
-                    width: 1.8,
-                    displayValue: false,
-                    margin: 0
-                });
-            } catch (e) {
-                console.error("Barcode generation failed for ID:", studentId, e);
-                // Optionally hide the barcode container if it fails
-                document.getElementById(barcodeId).style.display = 'none';
-            }
-        }
-    });
-}
+        // Start processing students
+        processNextStudent();
+    }, 500);
+};
 
 // --- FIREBASE REALTIME LISTENERS ---
 const setupRealtimeListeners = (userId) => {
@@ -786,9 +843,6 @@ const setupRealtimeListeners = (userId) => {
     document.getElementById('search-students').addEventListener('input', renderStudents);
     document.getElementById('student-class-filter').addEventListener('change', renderStudents); // Add listener for new filter
     
-    // Add event listeners for the student card filters
-    document.getElementById('card-class-filter')?.addEventListener('change', renderStudentCards);
-    document.getElementById('card-search-box')?.addEventListener('input', renderStudentCards);
     
     // --- EXPORT BUTTON LISTENER ---
     document.getElementById('export-excel-btn').addEventListener('click', exportData);
@@ -1939,7 +1993,7 @@ changePasswordForm.addEventListener('submit', async (e) => {
         return;
     }
     if (newPassword.length < 6) {
-        errorP.textContent = 'ពាក្យសម្ងាត់ថ្មីត្រូវមានอย่างน้อย 6 ตัวอักษរ។';
+        errorP.textContent = 'ពាក្យសម្ងាត់ថ្មីត្រូវមានอย่างน้อย 6 ตัวอักษร។';
         return;
     }
 
@@ -2043,8 +2097,16 @@ window.printReport = () => {
     }
 };
 
+// MODIFIED FUNCTION: Adds a longer delay to ensure all elements are rendered before printing.
 window.printCards = () => {
-    prepareAndPrint('printing-page-student-cards');
+    // Add the printing class to the body
+    document.body.classList.add('printing-page-student-cards');
+    
+    // Use a timeout to allow the browser to render all QR codes and barcodes
+    // before opening the print dialog. This fixes issues with missing elements on later pages.
+    setTimeout(() => {
+        window.print();
+    }, 3000); // Increased delay to 3 seconds for larger datasets
 };
 
 window.onafterprint = () => {

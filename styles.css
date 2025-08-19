@@ -111,8 +111,8 @@ select:focus {
 
 #page-student-cards .info {
   text-align: left;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 2.0;
   flex-grow: 1;
 }
 
@@ -161,12 +161,14 @@ select:focus {
 
 #page-student-cards .stamp {
   position: absolute;
-  bottom: 50px;
-  right: -100px;
-  width: 500px;
-  height: 80px;
-  opacity: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 190px;
+  height: 190px;
+  opacity: 0.9;
   z-index: 2;
+  background-color: transparent;
 }
 
 #page-student-cards #loading-cards {
@@ -192,11 +194,6 @@ select:focus {
         background-color: white !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
-    }
-    
-    /* Remove gray backgrounds for all elements except student cards */
-    * {
-        background-color: white !important;
     }
 
     /* --- Hide ALL non-printable elements FORCEFULLY --- */
@@ -403,33 +400,83 @@ select:focus {
             display: block !important;
         }
         
-        /* VERY IMPORTANT: Override the on-screen flexbox layout for the container */
+        /* On-screen container should be a simple block in print mode */
         #student-card-container {
+            display: block !important;
+        }
+
+        /* NEW: Style for the dynamically created page containers */
+        .print-page-container {
             display: grid !important;
-            grid-template-columns: repeat(3, 1fr); /* 3 cards per row */
-            grid-template-rows: repeat(3, 1fr); /* 3 rows */
-            gap: 2mm; /* Small gap between cards */
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2mm;
             width: 100%;
-            height: 100vh;
+            height: calc(297mm - 10mm); /* A4 height minus top/bottom margins */
             box-sizing: border-box;
-            page-break-after: always;
+            page-break-after: always; /* Break after each page container */
+        }
+
+        /* NEW: Prevent the final blank page by targeting the last container */
+        .print-page-container:last-of-type {
+            page-break-after: auto !important;
         }
 
         /* Adjust card size for 9 cards per A4 page */
         #page-student-cards .card {
-            display: block !important;
-            width: calc((210mm - 20mm) / 3) !important; /* A4 width minus margins divided by 3 */
-            height: calc((297mm - 20mm) / 3) !important; /* A4 height minus margins divided by 3 */
-            max-width: 60mm !important;
-            max-height: 90mm !important;
             page-break-inside: avoid;
             margin: 0 !important;
             padding: 3mm !important;
-            font-size: 9px !important;
+            font-size: 13px !important;
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
+            border: 1px solid #000; /* Ensure border is visible */
+            display: flex !important; /* Re-apply flex for internal layout */
+            flex-direction: column;
+            justify-content: space-between;
         }
+        
+        /* START: MODIFICATIONS FOR PRINTING TRANSPARENCY & FIXES (User Request) */
+
+        /* 1. កំណត់ផ្ទៃខាងក្រោយទិន្នន័យសិស្សថ្លា */
+        #page-student-cards .card {
+            background-color: transparent !important;
+        }
+
+        /* 2. ផ្ទៃរូបថតថ្លា ប៉ុន្តែរក្សាស៊ុមខ្មៅ (FIX) */
+        #page-student-cards .photo, 
+        #page-student-cards .no-photo {
+            background-color: transparent !important;
+            border: 1px solid #000 !important; /* FIX: Re-apply black border for print */
+        }
+
+        /* 3. ផ្ទៃរូបត្រាថ្លា */
+        #page-student-cards .stamp {
+            background-color: transparent !important;
+        }
+
+        /* 4. រំកិល barcode ចុះបន្តិច */
+        #page-student-cards .barcode-container {
+            margin-top: 2mm !important;
+            background-color: transparent !important; /* Ensure no white bar */
+        }
+        
+        /* 5. បន្ថែមទំហំត្រា (NEW FIX) */
+        #page-student-cards .stamp {
+            width: 190px !important;
+            height: 190px !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            bottom: 200 !important;
+            right: auto !important; /* Unset right property */
+
+            opacity: 0.9 !important;
+        }
+
+        /* END: MODIFICATIONS FOR PRINTING TRANSPARENCY & FIXES */
+
 
         /* Perfect background logo positioning */
         #page-student-cards .card::before {
