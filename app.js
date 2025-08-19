@@ -58,6 +58,9 @@ onAuthStateChanged(auth, user => {
         authContainer.classList.add('hidden');
         appContainer.classList.remove('hidden');
         setupRealtimeListeners(currentUserId);
+        
+        // Load default page setting and navigate
+        loadDefaultPageSetting();
     } else {
         currentUserId = null;
         appContainer.classList.add('hidden');
@@ -2341,3 +2344,44 @@ window.onafterprint = () => {
     );
     document.body.classList.remove(...printClasses);
 };
+
+// --- DEFAULT PAGE SETTING FUNCTIONS ---
+const loadDefaultPageSetting = async () => {
+    try {
+        const settingsRef = doc(db, "users", currentUserId, "settings", "generalInfo");
+        const settingsDoc = await getDocs(query(collection(db, "users", currentUserId, "settings")));
+        
+        let defaultPage = 'home'; // Default to home page
+        settingsDoc.forEach(doc => {
+            if (doc.id === 'generalInfo' && doc.data().defaultPage) {
+                defaultPage = doc.data().defaultPage;
+            }
+        });
+        
+        // Update the select dropdown
+        const defaultPageSelect = document.getElementById('default-page-select');
+        if (defaultPageSelect) {
+            defaultPageSelect.value = defaultPage;
+        }
+        
+        // Navigate to the default page
+        navigateTo(defaultPage);
+    } catch (error) {
+        console.error('Error loading default page setting:', error);
+        navigateTo('home'); // Fallback to home
+    }
+};
+
+// Save default page setting
+document.getElementById('save-default-page-btn').addEventListener('click', async () => {
+    const defaultPage = document.getElementById('default-page-select').value;
+    const settingsRef = doc(db, "users", currentUserId, "settings", "generalInfo");
+    
+    try {
+        await setDoc(settingsRef, { defaultPage: defaultPage }, { merge: true });
+        alert('រក្សាទុកទំព័រចាប់ផ្តើមលំនាំដើមបានជោគជ័យ។');
+    } catch (error) {
+        console.error('Error saving default page:', error);
+        alert('ការរក្សាទុកបានបរាជ័យ។');
+    }
+});

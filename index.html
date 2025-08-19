@@ -131,7 +131,7 @@
             <div class="flex-1 flex flex-col overflow-hidden">
                 <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
                     <!-- Home Page -->
-                    <div id="page-home" class="page hidden">
+                    <div id="page-home" class="page">
                         <h2 class="text-3xl font-bold mb-6 text-gray-800">ផ្ទាំងគ្រប់គ្រង</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div class="bg-white p-6 rounded-lg shadow-md flex items-center">
@@ -155,6 +155,13 @@
                                     <p id="total-loans" class="text-4xl font-bold text-gray-800">0</p>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Library Software Advertisement -->
+                        <div class="mt-8 bg-white p-6 rounded-lg shadow-md text-center">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">កម្មវិធីបណ្ណាល័យខ្ញុំ</h3>
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">ឧបត្ថម្ភការផលិតដោយ៖</h3>
+                            <img src="gnclogo.png" alt="GNC Logo" class="mx-auto max-w-xs h-auto">
                         </div>
                     </div>
 
@@ -371,7 +378,7 @@
                     </div>
                     
                     <!-- Reading Log Page -->
-                    <div id="page-reading-log" class="page">
+                    <div id="page-reading-log" class="page hidden">
                         <h2 class="text-3xl font-bold text-gray-800 mb-4 no-print">កត់ត្រាការចូលអាន</h2>
                         <div class="bg-white p-6 rounded-lg shadow-md mb-6 no-print">
                             <form id="reading-log-form">
@@ -558,6 +565,22 @@
                                                     <button id="save-seal-url-btn" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">រក្សាទុក URL</button>
                                                 </div>
                                                 <img id="seal-image-preview" src="https://placehold.co/100x100/e2e8f0/e2e8f0?text=Preview" alt="Seal Preview" class="w-24 h-24 object-contain border rounded-md bg-gray-100">
+                                            </div>
+                                        </div>
+                                        <!-- Default Page Setting -->
+                                        <div>
+                                            <label for="default-page-select" class="block text-sm font-medium text-gray-700">ទំព័រចាប់ផ្តើមលំនាំដើម</label>
+                                            <div class="mt-1 flex items-center gap-2">
+                                                <select id="default-page-select" class="flex-grow block w-full rounded-md border-gray-300 shadow-sm">
+                                                    <option value="home">ផ្ទាំងគ្រប់គ្រង</option>
+                                                    <option value="books">បញ្ជីសៀវភៅ</option>
+                                                    <option value="loans">ការខ្ចី-សងបុគ្គល</option>
+                                                    <option value="class-loans">ការខ្ចីតាមថ្នាក់</option>
+                                                    <option value="reading-log">កត់ត្រាការចូលអាន</option>
+                                                    <option value="locations">ទីតាំងរក្សាទុក</option>
+                                                    <option value="students">ទិន្នន័យសិស្ស</option>
+                                                </select>
+                                                <button id="save-default-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">រក្សាទុក</button>
                                             </div>
                                         </div>
                                         <!-- Card Background -->
