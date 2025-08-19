@@ -168,6 +168,9 @@
     }
   </style>
 
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- Barcode Generation Library -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -440,11 +443,17 @@
       }, 100);
     }
 
+    // Debug logging for troubleshooting
+    console.log('stcard.html script loaded');
+    
     // Auto-load when page loads
     window.addEventListener('load', () => {
+      console.log('Page loaded, checking auth...');
       // Check authentication immediately
       setTimeout(() => {
+        console.log('Auth check timeout, currentUserId:', currentUserId);
         if (!currentUserId) {
+          console.log('No user found, redirecting...');
           // Redirect to login page if not authenticated after 2 seconds
           window.location.href = 'index.html';
         }

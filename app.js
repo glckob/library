@@ -116,9 +116,13 @@ const navigateTo = (pageId) => {
 
 navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
-        e.preventDefault();
         const pageId = link.getAttribute('data-page');
-        navigateTo(pageId);
+        // Only prevent default and navigate if it's an internal page
+        if (pageId) {
+            e.preventDefault();
+            navigateTo(pageId);
+        }
+        // If no data-page attribute, let the natural href work (for external links like stcard.html)
     });
 });
 
@@ -2115,6 +2119,18 @@ window.onafterprint = () => {
     );
     document.body.classList.remove(...printClasses);
 };
+
+// Navigation function for student cards page - Universal compatibility
+function navigateToStudentCards() {
+    // Use window.open with _self target for maximum compatibility
+    const currentOrigin = window.location.origin;
+    const currentPath = window.location.pathname;
+    const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    const fullUrl = currentOrigin + basePath + 'stcard.html';
+    
+    // Open in same tab with full URL for universal compatibility
+    window.open(fullUrl, '_self');
+}
 
 // NEW FUNCTION: Print a detailed class loan report
 document.getElementById('print-class-loan-list-btn').addEventListener('click', () => {
