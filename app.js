@@ -56,6 +56,30 @@ const setupLoanSortListeners = () => {
             renderLoans();
         });
 
+// Attempt to focus the Books search box when the Books page is visible
+document.addEventListener('DOMContentLoaded', () => {
+    const tryFocusSearchBooks = () => {
+        const input = document.getElementById('search-books');
+        const page = document.getElementById('page-books');
+        if (!input || !page) return false;
+        const pageVisible = !page.classList.contains('hidden');
+        const inputVisible = !!(input.offsetParent);
+        if (pageVisible && inputVisible) {
+            input.focus();
+            return true;
+        }
+        return false;
+    };
+
+    let attempts = 0;
+    const maxAttempts = 40; // ~10 seconds total
+    const intervalId = setInterval(() => {
+        if (tryFocusSearchBooks() || ++attempts >= maxAttempts) {
+            clearInterval(intervalId);
+        }
+    }, 250);
+});
+
 // Grouped Return Modal for Individual Loans
 window.openGroupedReturnModal = (groupKey) => {
     const [borrower, loanDate] = groupKey.split('|');
@@ -472,6 +496,20 @@ const navigateTo = (pageId) => {
     try { localStorage.setItem('lastPage', pageId); } catch (e) { /* ignore */ }
 
     // Auto-focus or setup for specific pages
+    if (pageId === 'books') {
+        // Focus the search box shortly after the page becomes visible
+        setTimeout(() => {
+            const input = document.getElementById('search-books');
+            if (input) { input.focus(); input.select(); }
+        }, 100);
+    }
+    if (pageId === 'locations') {
+        // Focus search on Locations page
+        setTimeout(() => {
+            const input = document.getElementById('search-locations');
+            if (input) { input.focus(); input.select(); }
+        }, 100);
+    }
     if (pageId === 'class-loans') {
         populateClassLoanForm();
         setTimeout(() => document.getElementById('class-loan-isbn-input').focus(), 100);
@@ -483,6 +521,13 @@ const navigateTo = (pageId) => {
     if (pageId === 'reading-log') {
         window.clearReadingLogForm();
         setTimeout(() => document.getElementById('reading-log-student-id').focus(), 100);
+    }
+    if (pageId === 'students') {
+        // Focus search on Students page
+        setTimeout(() => {
+            const input = document.getElementById('search-students');
+            if (input) { input.focus(); input.select(); }
+        }, 100);
     }
 };
 
@@ -496,6 +541,36 @@ navLinks.forEach(link => {
         }
         // If no data-page attribute, let the natural href work (for external links like stcard.html)
     });
+});
+
+// Refocus relevant inputs after printing finishes
+window.addEventListener('afterprint', () => {
+    const activePage = document.querySelector('.page:not(.hidden)');
+    if (!activePage) return;
+    if (activePage.id === 'page-locations') {
+        const input = document.getElementById('search-locations');
+        if (input) { input.focus(); input.select(); }
+    }
+    if (activePage.id === 'page-students') {
+        const input = document.getElementById('search-students');
+        if (input) { input.focus(); input.select(); }
+    }
+    if (activePage.id === 'page-reading-log') {
+        const input = document.getElementById('reading-log-student-id');
+        if (input) { input.focus(); input.select(); }
+    }
+    if (activePage.id === 'page-class-loans') {
+        const input = document.getElementById('class-loan-isbn-input');
+        if (input) { input.focus(); input.select(); }
+    }
+    if (activePage.id === 'page-loans') {
+        const input = document.getElementById('loan-isbn-input');
+        if (input) { input.focus(); input.select(); }
+    }
+    if (activePage.id === 'page-books') {
+        const input = document.getElementById('search-books');
+        if (input) { input.focus(); input.select(); }
+    }
 });
 
 // --- RENDERING FUNCTIONS ---
@@ -2086,15 +2161,22 @@ window.openBookModal = (id = null) => {
         }
     } else { document.getElementById('book-modal-title').textContent = 'បន្ថែមសៀវភៅថ្មី'; }
     document.getElementById('book-modal').classList.remove('hidden');
-    // Auto-focus ISBN when adding a new book
-    if (!id) {
-        setTimeout(() => {
-            const isbnInput = document.getElementById('isbn');
-            if (isbnInput) isbnInput.focus();
-        }, 50);
-    }
+    // Auto-focus ISBN when opening the form (both add and edit)
+    setTimeout(() => {
+        const isbnInput = document.getElementById('isbn');
+        if (isbnInput) isbnInput.focus();
+    }, 50);
 };
-window.closeBookModal = () => document.getElementById('book-modal').classList.add('hidden');
+window.closeBookModal = () => {
+    const modal = document.getElementById('book-modal');
+    if (modal) modal.classList.add('hidden');
+    // Return focus to Books search box
+    setTimeout(() => {
+        const input = document.getElementById('search-books');
+        if (input && !document.getElementById('book-modal')?.classList.contains('hidden')) return; // still open
+        if (input) { input.focus(); input.select(); }
+    }, 50);
+};
 window.editBook = (id) => openBookModal(id);
 // Book Delete Confirmation Modal controls
 window.openBookDeleteModal = (id) => {
@@ -3161,6 +3243,16 @@ window.openLocationModal = (id = null) => {
     document.getElementById('location-modal').classList.remove('hidden');
 };
 window.closeLocationModal = () => document.getElementById('location-modal').classList.add('hidden');
+window.closeLocationModal = () => {
+    const modal = document.getElementById('location-modal');
+    if (modal) modal.classList.add('hidden');
+    // Return focus to Locations search box
+    setTimeout(() => {
+        const input = document.getElementById('search-locations');
+        if (input && !document.getElementById('location-modal')?.classList.contains('hidden')) return; // still open
+        if (input) { input.focus(); input.select(); }
+    }, 50);
+};
 window.editLocation = (id) => openLocationModal(id);
 
 // Location Delete Confirmation Modal controls
@@ -3170,7 +3262,14 @@ window.openLocationDeleteModal = (id) => {
     const confirmBtn = document.getElementById('location-delete-confirm-btn');
     const loc = locations.find(l => String(l.id) === String(id));
     const isUsed = books.some(book => String(book.location_id) === String(id));
-    if (isUsed) { alert('មិនអាចលុបទីតាំងនេះបានទេ ព្រោះកំពុងប្រើប្រាស់ដោយសៀវភៅ។'); return; }
+    if (isUsed) { 
+        if (typeof window.openLocationInUseModal === 'function') {
+            window.openLocationInUseModal();
+        } else {
+            alert('មិនអាចលុបទីតាំងនេះបានទេ ព្រោះកំពុងប្រើប្រាស់ដោយសៀវភៅ។');
+        }
+        return; 
+    }
     if (messageEl) {
         const name = (loc?.name || '').trim();
         messageEl.textContent = name ? `តើអ្នកពិតជាចង់លុបទីតាំង «${name}» មែនទេ?` : 'តើអ្នកពិតជាចង់លុបទីតាំងនេះមែនទេ?';
@@ -3217,6 +3316,17 @@ window.performDeleteLocation = async (id) => {
 window.deleteLocation = (id) => {
     if (!currentUserId) return;
     window.openLocationDeleteModal(id);
+};
+
+// Location In-Use Info Modal controls
+window.openLocationInUseModal = () => {
+    const modal = document.getElementById('location-inuse-modal');
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeLocationInUseModal = () => {
+    const modal = document.getElementById('location-inuse-modal');
+    if (modal) modal.classList.add('hidden');
 };
 
 document.getElementById('location-form').addEventListener('submit', async (e) => {
@@ -3301,7 +3411,14 @@ window.openStudentModal = (id = null) => {
 };
 
 window.closeStudentModal = () => {
-    document.getElementById('student-modal').classList.add('hidden');
+    const modal = document.getElementById('student-modal');
+    if (modal) modal.classList.add('hidden');
+    // Return focus to Students search box
+    setTimeout(() => {
+        const input = document.getElementById('search-students');
+        if (input && !document.getElementById('student-modal')?.classList.contains('hidden')) return; // still open
+        if (input) { input.focus(); input.select(); }
+    }, 50);
 };
 
 // Student Delete Confirmation Modal controls
@@ -4342,7 +4459,11 @@ function navigateToStudentCards() {
 document.getElementById('print-class-loan-list-btn').addEventListener('click', () => {
     const selectedClass = document.getElementById('class-loan-filter-select').value;
     if (!selectedClass) {
-        alert('សូមជ្រើសរើសថ្នាក់ដែលត្រូវបោះពុម្ពជាមុនសិន។');
+        if (typeof window.openClassLoanSelectRequiredModal === 'function') {
+            window.openClassLoanSelectRequiredModal();
+        } else {
+            alert('សូមជ្រើសរើសថ្នាក់ដែលត្រូវបោះពុម្ពជាមុនសិន។');
+        }
         return;
     }
     
@@ -4692,6 +4813,16 @@ window.openLoanDuplicateModal = () => {
 
 window.closeLoanDuplicateModal = () => {
     const modal = document.getElementById('loan-duplicate-modal');
+    if (modal) modal.classList.add('hidden');
+};
+// Class Selection Required Info Modal controls (Class Loans)
+window.openClassLoanSelectRequiredModal = () => {
+    const modal = document.getElementById('class-loan-select-required-modal');
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeClassLoanSelectRequiredModal = () => {
+    const modal = document.getElementById('class-loan-select-required-modal');
     if (modal) modal.classList.add('hidden');
 };
 

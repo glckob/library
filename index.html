@@ -110,6 +110,17 @@
       </div>
     </div>
 
+    <!-- Location In Use Info Modal -->
+    <div id="location-inuse-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden no-print z-30">
+      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4 text-gray-900">សារ​ជូន​ដំណឹង</h3>
+        <p id="location-inuse-message" class="text-gray-700 mb-6">មិនអាចលុបទីតាំងនេះបានទេ ព្រោះកំពុងប្រើប្រាស់ដោយសៀវភៅ។</p>
+        <div class="flex justify-end">
+          <button type="button" onclick="window.closeLocationInUseModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md">យល់ព្រម</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Student Delete Confirmation Modal -->
     <div id="student-delete-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden no-print z-30">
       <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
@@ -176,6 +187,17 @@
                 </div>
             </form>
         </div>
+    </div>
+
+    <!-- Class Selection Required Info Modal (Class Loans) -->
+    <div id="class-loan-select-required-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden no-print z-30">
+      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+        <h3 class="text-xl font-bold mb-4 text-gray-900">សារ​ជូន​ដំណឹង</h3>
+        <p id="class-loan-select-required-message" class="text-gray-700 mb-6">សូមជ្រើសរើសថ្នាក់ដែលត្រូវបោះពុម្ពជាមុនសិន។</p>
+        <div class="flex justify-end">
+          <button type="button" onclick="window.closeClassLoanSelectRequiredModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md">យល់ព្រម</button>
+        </div>
+      </div>
     </div>
 
     <!-- Auth Container -->
@@ -340,7 +362,7 @@
                          <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                             <h2 class="text-3xl font-bold text-gray-800 no-print">បញ្ជីសៀវភៅ</h2>
                             <div class="flex items-center">
-                                <input type="text" id="search-books" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md mr-4 no-print" placeholder="ស្វែងរកសៀវភៅ...">
+                                <input type="text" id="search-books" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md mr-4 no-print" placeholder="ស្វែងរកសៀវភៅ..." autofocus>
                                 <button onclick="window.printReport()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 mr-2 no-print"><i class="fas fa-print mr-2"></i>បោះពុម្ព</button>
                                 <button onclick="window.openBookModal()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 no-print"><i class="fas fa-plus mr-2"></i>បន្ថែម</button>
                             </div>
