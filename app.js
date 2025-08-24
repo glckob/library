@@ -415,12 +415,27 @@ function handleAuthState(session) {
         appContainer.classList.remove('hidden');
         setupRealtimeListeners(currentUserId);
         
-        // Navigate to last visited page if available, else default setting, else home
+        // Determine target page: URL param/hash > last visited > settings default > 'home'
         let target = 'home';
         try {
-            const saved = localStorage.getItem('lastPage');
-            if (saved) target = saved;
-            else if (settingsData && settingsData.default_page) target = settingsData.default_page;
+            const url = new URL(window.location.href);
+            const fromQuery = (url.searchParams.get('page') || '').trim();
+            const fromHash = (url.hash || '').replace(/^#/, '').trim();
+            const preferred = fromQuery || fromHash;
+            if (preferred) {
+                target = preferred;
+                // Persist so subsequent navigations respect this choice
+                localStorage.setItem('lastPage', target);
+                // Optional: clean the URL (keep other params)
+                try {
+                    url.searchParams.delete('page');
+                    history.replaceState(null, '', url.toString());
+                } catch (_) { /* noop */ }
+            } else {
+                const saved = localStorage.getItem('lastPage');
+                if (saved) target = saved;
+                else if (settingsData && settingsData.default_page) target = settingsData.default_page;
+            }
         } catch (e) { /* ignore */ }
         navigateTo(target);
     } else {
@@ -3591,8 +3606,17 @@ document.getElementById('reading-log-form').addEventListener('keydown', function
             clearTimeout(isbnScanTimer); // Stop any pending input event timer
             
             const isbnInput = document.getElementById('reading-log-isbn-input');
-            const isbn = isbnInput.value.trim();
+            // Convert Khmer numbers and normalize value
+            const converted = convertKhmerToEnglishNumbers(isbnInput.value || '');
+            if (converted !== isbnInput.value) isbnInput.value = converted;
+            const isbn = converted.trim();
             if (!isbn) return;
+            // Enforce single scanned book
+            if (currentScannedBooks.length >= 1) {
+                try { if (typeof window.showToast === 'function') window.showToast('សូមស្កេនតែមួយក្បាល បន្ទាប់មកចុច Enter ដើម្បីរក្សាទុក។', 'bg-yellow-600'); } catch(_){}
+                isbnInput.value = '';
+                return;
+            }
 
             const foundBook = books.find(b => b.isbn && b.isbn.toLowerCase() === isbn.toLowerCase());
             if (foundBook) {
@@ -3602,7 +3626,13 @@ document.getElementById('reading-log-form').addEventListener('keydown', function
                     li.textContent = foundBook.title;
                     document.getElementById('scanned-books-list').appendChild(li);
                 }
-                isbnInput.value = ''; // Clear input after successful scan
+                // Disable further scans until save/clear
+                isbnInput.value = '';
+                isbnInput.disabled = true;
+                isbnInput.placeholder = 'បានស្កេន 1 ក្បាល។ ចុច Enter ដើម្បីរក្សាទុក';
+                // Trigger submit (will validate student fields inside submit handler)
+                const form = document.getElementById('reading-log-form');
+                if (form && typeof form.requestSubmit === 'function') form.requestSubmit(); else form.submit();
             }
             // If book is not found, do nothing, leave the value for correction.
         }
@@ -3617,6 +3647,8 @@ window.clearReadingLogForm = () => {
     document.getElementById('scanned-books-list').innerHTML = '';
     currentScannedBooks = [];
     currentStudentGender = '';
+    const isbnEl = document.getElementById('reading-log-isbn-input');
+    if (isbnEl) { isbnEl.disabled = false; isbnEl.placeholder = 'ស្កេនសៀវភៅម្តងមួយ...'; }
     document.getElementById('reading-log-student-id').focus();
 };
 
@@ -3655,6 +3687,12 @@ document.getElementById('reading-log-isbn-input').addEventListener('input', (e) 
     isbnScanTimer = setTimeout(() => {
         const isbnInput = document.getElementById('reading-log-isbn-input');
         const isbn = convertedValue.trim();
+        // Enforce single scanned book
+        if (currentScannedBooks.length >= 1) {
+            try { if (typeof window.showToast === 'function') window.showToast('បានស្កេនរួចហើយ 1 ក្បាល។ សូមរក្សាទុកជាមុនសិន។', 'bg-yellow-600'); } catch(_){}
+            if (isbnInput) isbnInput.value = '';
+            return;
+        }
         if (!isbn) return;
         const foundBook = books.find(b => b.isbn && b.isbn.toLowerCase() === isbn.toLowerCase());
         if (foundBook) {
@@ -3664,7 +3702,10 @@ document.getElementById('reading-log-isbn-input').addEventListener('input', (e) 
                 li.textContent = foundBook.title;
                 document.getElementById('scanned-books-list').appendChild(li);
             }
+            // Disable further scans until save/clear
             isbnInput.value = '';
+            isbnInput.disabled = true;
+            isbnInput.placeholder = 'បានស្កេន 1 ក្បាល។ ចុច Enter ដើម្បីរក្សាទុក';
         }
     }, 300); 
 });

@@ -19,6 +19,7 @@
       --border: #e5e7eb;
       --table-head: #eef2f7;
     }
+
     html, body {
       height: 100%;
       margin: 0;
@@ -29,17 +30,128 @@
     .container {
       max-width: 1080px; margin: 32px auto; padding: 0 16px;
     }
+    /* Scan UI enhancements */
+    .split-wrap { gap: 18px; }
+    .scan-card-title { margin: 0 0 12px 0; font-weight: 800; font-size: 18px; color: #111827; }
+    .scan-field { margin-top: 8px; }
+    /* Make consecutive scan fields stick together (student card -> ISBN) */
+    .scan-field + .scan-field { margin-top: 2px; }
+    /* Tighter spacing between scan box and labels */
+    .scan-field.scan-info-grid { margin-top: 4px; }
+    .scan-field.info-box { margin-top: 4px; }
+    .scan-label { display:block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .scan-input { width:100%; max-width:100%; box-sizing: border-box; padding: 10px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 10px; outline: none; background: #fff; color: var(--text); }
+    .scan-input::placeholder { color: #9ca3af; }
+    .scan-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+    .scan-info-grid { display:grid; grid-template-columns: 1.2fr .6fr .7fr; gap: 10px; }
+    .info-box { border: 1px solid var(--border); background: #f9fafb; border-radius: 10px; padding: 10px 12px; min-height: 48px; display:flex; flex-direction:column; justify-content:center; }
+    .info-box .caption { font-size:12px; color:#6b7280; margin-bottom: 2px; }
+    .info-box .value { font-weight:600; color:#111827; min-height: 22px; }
+    .scan-actions { display:flex; justify-content:flex-end; gap:8px; margin-top: 12px; flex-wrap: wrap; }
+    .btn { padding: 10px 14px; font-size: 14px; border-radius: 10px; border: none; cursor: pointer; }
+    @media (max-width: 960px) {
+      .split-wrap { grid-template-columns: 1fr; }
+    }
+    /* Overlay for scan section */
+    .card { position: relative; overflow: hidden; }
+    .scan-overlay {
+      position: fixed;        /* full viewport center container */
+      inset: 0;
+      display: none;
+      align-items: center;    /* center content */
+      justify-content: center;/* center content */
+      background: rgba(0,0,0,0.6); /* black ground */
+      z-index: 1000;          /* above everything */
+      pointer-events: none;   /* don't block when hidden */
+    }
+    .scan-overlay .panel {
+      position: relative;
+      max-width: 520px;
+      width: calc(100% - 40px);
+      padding: 2px;                /* RGB frame thickness */
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      background: transparent;
+    }
+    .scan-overlay .panel::before {
+      content: '';
+      position: absolute; inset: 0; border-radius: 14px;
+      background: conic-gradient(
+        #ff0040, #ff8000, #ffea00, #33ff00, #00ffd5, #0066ff, #7a00ff, #ff00aa, #ff0040
+      );
+      filter: saturate(1.1);
+      z-index: 0;
+    }
+    .scan-overlay .panel-inner {
+      position: relative; z-index: 1;
+      border-radius: 12px;
+      padding: 14px 18px;
+      background: #10b981;  /* green */
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 16px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .scan-overlay .panel-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;     /* show upper 2 lines */
+      line-clamp: 2;             /* standard property for compatibility */
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;
+    }
+    .scan-overlay.show { display: flex; pointer-events: auto; }
+    .scan-overlay.success .panel-inner { background: #10b981; color: #ffffff; }
+    .scan-overlay.error .panel-inner { background: #ef4444; color: #ffffff; }
+    /* Virtual keyboard (QWERTY) */
+    .vkeyboard {
+      position: fixed; left: 50px; right: 50px; bottom: 0; z-index: 2000;
+      background: #e0efff; /* light blue */
+      border-top: 1px solid #bcd7ff;
+      box-shadow: 0 -8px 24px rgba(0,0,0,.08);
+      padding: 4px 5px; display: none;
+      user-select: none;
+      font-size: 12px; /* reduce base font size */
+    }
+    .vkeyboard.show { display: block; }
+    .vk-bar { display:flex; align-items:center; justify-content: space-between; margin-bottom: 3px; }
+    .vk-title { font-weight: 700; color: #1f2937; }
+    .vk-close { border:none; background: transparent; font-size: 14px; cursor:pointer; padding: 4px 6px; }
+    .vk-rows { display:flex; flex-direction:column; gap: 3px; }
+    .vk-row { display:grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; }
+    .vk-key { padding: 5px; text-align:center; border: 1px solid #bcd7ff; border-radius: 6px; background:#cfe5ff; cursor: pointer; font-weight: 600; color:#111827; }
+    .vk-key:active { transform: translateY(1px); }
+    .vk-key.w2 { grid-column: span 2; }
+    .vk-key.w3 { grid-column: span 3; }
+    /* Special styling for Backspace key */
+    .vk-key[data-key="BACKSPACE"] { background: #ef4444; color: #ffffff; border-color: #dc2626; }
+    .vk-key[data-key="BACKSPACE"]:active { background: #dc2626; }
+    /* Special styling for Enter key */
+    .vk-key[data-key="ENTER"] { background: #10b981; color: #ffffff; border-color: #059669; }
+    .vk-key[data-key="ENTER"]:active { background: #059669; }
+    .vk-key.space { grid-column: span 6; }
+    .vk-key.toggle.on { background:#b7d6ff; }
+    @media (max-width: 640px) {
+      .vk-key { padding: 8px; font-size: 14px; }
+      .vk-key.space { grid-column: span 5; }
+    }
+    /* Removed rotation animation for static RGB frame */
     .topbar {
       position: sticky; top: 0; z-index: 10; background: transparent; padding-top: 8px;
     }
-    .logout-btn {
+    /* removed .logout-btn */
+
+    /* Home button (moved to top-right) */
+    .home-btn {
       position: fixed; top: 12px; right: 16px; z-index: 50;
-      background: white; border: 1px solid var(--border); color: #b91c1c;
-      padding: 8px 14px; border-radius: 9999px; font-weight: 600; cursor: pointer;
-      transition: box-shadow .2s, transform .05s;
+      background: #10b981; color: #ffffff; border: 1px solid #059669;
+      padding: 8px 14px; border-radius: 9999px; font-weight: 700; cursor: pointer;
+      text-decoration: none; box-shadow: 0 4px 20px rgba(0,0,0,.06);
+      transition: box-shadow .2s, transform .05s, background .2s;
     }
-    .logout-btn:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); }
-    .logout-btn:active { transform: translateY(1px); }
+    .home-btn:hover { box-shadow: 0 8px 28px rgba(0,0,0,.12); }
+    .home-btn:active { transform: translateY(1px); background:#059669; }
 
     .card {
       background: var(--card);
@@ -58,7 +170,7 @@
       column-gap: 12px;
     }
     .header-row .main-title { grid-column: 2; justify-self: center; }
-    .header-row .logout-btn { grid-column: 3; justify-self: end; float: none; }
+    /* removed header-row .logout-btn placement */
 
     .header h1 {
       margin: 10px 0 0; font-size: 28px; font-weight: 800; letter-spacing: .5px;
@@ -183,6 +295,7 @@
   </style>
 </head>
 <body>
+  <a href="index.html" class="home-btn"><i class="fa fa-home" aria-hidden="true"></i> ទំព័រដើម</a>
   <!-- LOGIN VIEW -->
   <div id="auth-view" class="full-center">
     <div class="login-card">
@@ -206,11 +319,10 @@
   <!-- APP VIEW -->
   <div id="app-view" class="hide">
 
-    <div class="container">
+    <div class="container" style="margin-top:-6px;">
       <div class="header center">
         <div class="header-row">
           <div class="main-title">បណ្ណាល័យខ្ញុំ</div>
-          <button id="logout-btn" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> ចាកចេញ</button>
         </div>
         <h1 id="school-line1">សាលាអប់រំ</h1>
         <h2 id="school-line2">បណ្ណាល័យសាលា</h2>
@@ -218,14 +330,48 @@
         <img src="gnclogo.png" alt="Good Neighbors Cambodia">
         <div class="subtitle">
           សូមស្វែងរកសៀវភៅដោយ បញ្ចូលចំណងជើង ឈ្មោះអ្នកនិពន្ធ ឬ លេខកូដ ISBN ក្នុងប្រអប់ស្វែងរកខាងក្រោម
+            </div>
+          </div>
         </div>
       </div>
-      <div class="search-wrap">
-        <input id="search-input" class="search-input" type="text" placeholder="---ស្វែងរកសៀវភៅ---" />
-      </div>
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table>
+
+      <div class="split-wrap" style="display:grid; grid-template-columns: 20% 80%; margin-top:14px; align-items:start;">
+        <!-- Left: Reading Log Quick Scan -->
+        <div style="margin-top:-96px; margin-left:16px;">
+          <div class="card">
+            <h3 class="scan-card-title">កត់ត្រាចូលអានរហ័ស</h3>
+            <div id="rl-overlay" class="scan-overlay" aria-live="polite" aria-atomic="true"></div>
+            <form id="rl-form">
+              <!-- Line 1: Student card scan -->
+              <div class="scan-field">
+                <label class="scan-label" for="rl-student-id">ស្កេនអត្តលេខសិស្ស</label>
+                <input id="rl-student-id" type="text" class="scan-input" placeholder="ស្កេនកាតសិស្ស..." autocomplete="off" />
+                <div id="rl-student-error" class="error"></div>
+                <input id="rl-student-obj-id" type="hidden" />
+              </div>
+
+              <!-- Line 3: Book scan -->
+              <div class="scan-field">
+                <label class="scan-label" for="rl-isbn-input">ស្កេន ISBN សៀវភៅ</label>
+                <input id="rl-isbn-input" type="text" class="scan-input" placeholder="ស្កេនសៀវភៅម្តងមួយ..." autocomplete="off" />
+              </div>
+
+              <div class="scan-actions">
+                <button type="button" id="rl-clear-btn" class="btn" style="background:#e5e7eb; color:#111827;">សម្អាត</button>
+                <button type="submit" class="btn" style="background:#6366f1;">រក្សាទុកការចូលអាន</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right: Existing search UI -->
+        <div style="margin-right:32px;">
+          <div class="search-wrap" style="margin-left:-300px;">
+            <input id="search-input" class="search-input" type="text" style="text-align: center;" placeholder="---ស្វែងរកសៀវភៅ---" aria-label="ស្វែងរកសៀវភៅ" tabindex="0" />
+          </div>
+          <div class="card table-card">
+            <div class="table-scroll">
+              <table>
             <thead>
               <tr>
                 <th>ល.រ</th>
@@ -245,7 +391,7 @@
         </div>
       </div>
 
-      <div class="footer">
+      <div class="footer" style="margin-left:-290px;">
         សូមជួយថែរក្សាឧបករណ៍សាលា និងសៀវភៅបណ្ណាល័យ
         <div style="margin-top:6px;">កម្មវិធីនេះសរសេរដោយ លោកគ្រូ វង្ស សាណូវុទ្ធ</div>
       </div>
@@ -303,7 +449,6 @@
     const loginEmail = document.getElementById('login-email');
     const loginPassword = document.getElementById('login-password');
     const loginError = document.getElementById('login-error');
-    const logoutBtn = document.getElementById('logout-btn');
     const searchInput = document.getElementById('search-input');
     const resultsBody = document.getElementById('results-body');
     const schoolLine1 = document.getElementById('school-line1');
@@ -321,7 +466,12 @@
     const detailNotes = document.getElementById('detail-notes');
 
     let currentUserId = null;
-    let data = { books: [], loans: [], class_loans: [], locations: [], settings: {} };
+    let data = { books: [], loans: [], class_loans: [], locations: [], settings: {}, students: [] };
+
+    // Reading log page-local state
+    let rlCurrentBooks = [];
+    let rlStudentGender = '';
+    let rlIsbnTimer = null;
 
     // Auth wiring
     supabase.auth.getSession().then(({ data: { session } }) => handleAuth(session));
@@ -356,13 +506,11 @@
       }
     });
 
-    logoutBtn.addEventListener('click', async () => {
-      await supabase.auth.signOut();
-    });
+    // Removed logout button and handler
 
     // Bootstrap: load datasets and bind search
     async function bootstrap() {
-      await Promise.all([loadSettings(), loadLocations(), loadBooks(), loadLoans(), loadClassLoans()]);
+      await Promise.all([loadSettings(), loadLocations(), loadBooks(), loadLoans(), loadClassLoans(), loadStudents()]);
       applySettingsHeader();
       // Ensure search starts empty so table doesn't list everything by default
       if (searchInput) searchInput.value = '';
@@ -373,6 +521,8 @@
         .on('postgres_changes', { event: '*', schema: 'public', table: 'loans', filter: `user_id=eq.${currentUserId}` }, async () => { await loadLoans(); render(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'class_loans', filter: `user_id=eq.${currentUserId}` }, async () => { await loadClassLoans(); render(); })
         .subscribe();
+
+      bindReadingLogQuickScan();
     }
 
     // After printing, return focus to the search box
@@ -452,6 +602,11 @@
       data.class_loans = rows || [];
     }
 
+    async function loadStudents() {
+      const { data: rows } = await supabase.from('students').select('*').eq('user_id', currentUserId);
+      data.students = rows || [];
+    }
+
     function applySettingsHeader() {
       // Support multiple possible keys
       const singleName = data.settings['school-name'] || data.settings['schoolName'] || data.settings['school_name'] || '';
@@ -461,6 +616,230 @@
       schoolLine2.textContent = line2;
       // Hide line2 if empty
       schoolLine2.style.display = line2 ? '' : 'none';
+    }
+
+    // ---------- Reading Log Quick Scan Logic (JS) ----------
+    function convertKhmerToEnglishNumbers(input) {
+      if (!input) return '';
+      const map = { '០':'0','១':'1','២':'2','៣':'3','៤':'4','៥':'5','៦':'6','៧':'7','៨':'8','៩':'9' };
+      return String(input).replace(/[០-៩]/g, c => map[c] ?? c);
+    }
+
+    // Keep name internally (no labels shown)
+    let rlStudentName = '';
+    let rlSubmitting = false; // prevent double submits
+
+    function rlClearForm() {
+      document.getElementById('rl-form').reset();
+      document.getElementById('rl-student-obj-id').value = '';
+      document.getElementById('rl-student-error').textContent = '';
+      rlCurrentBooks = [];
+      rlStudentGender = '';
+      rlStudentName = '';
+      const isbnEl = document.getElementById('rl-isbn-input');
+      if (isbnEl) { isbnEl.disabled = false; isbnEl.placeholder = 'ស្កេនសៀវភៅម្តងមួយ...'; }
+      document.getElementById('rl-student-id').focus();
+    }
+
+    function getStudentKeysProbe(example) {
+      if (!example) return {};
+      const keys = Object.keys(example);
+      const byIncl = (subArr) => keys.find(k => subArr.some(s => k.toLowerCase().includes(s)));
+      return {
+        idKey: byIncl(['id']),
+        codeKey: byIncl(['អត្តលេខ', 'student_id', 'code', 'card', 'barcode']),
+        lastKey: byIncl(['នាមត្រកូល','last']),
+        firstKey: byIncl(['នាមខ្លួន','first']),
+        classKey: byIncl(['ថ្នាក់','class','grade']),
+        genderKey: byIncl(['ភេទ','gender'])
+      };
+    }
+
+    function formatStudentName(stu, probe) {
+      if (!stu) return '';
+      const last = probe.lastKey ? (stu[probe.lastKey] || '') : '';
+      const first = probe.firstKey ? (stu[probe.firstKey] || '') : '';
+      const klass = probe.classKey ? (stu[probe.classKey] || '') : '';
+      const full = `${last} ${first}`.trim();
+      return klass ? `${full} - ${klass}` : full;
+    }
+
+    function bindReadingLogQuickScan() {
+      const form = document.getElementById('rl-form');
+      const sidInput = document.getElementById('rl-student-id');
+      const sobjId = document.getElementById('rl-student-obj-id');
+      const serror = document.getElementById('rl-student-error');
+      const isbnInput = document.getElementById('rl-isbn-input');
+      const overlayEl = document.getElementById('rl-overlay');
+
+      let overlayTimer = null;
+      function showScanOverlay(message, type = 'info', durationMs = 2000) {
+        if (!overlayEl) return;
+        // Build panel structure: .panel > .panel-inner > .panel-text
+        overlayEl.className = 'scan-overlay show' + (type ? (' ' + type) : '');
+        overlayEl.innerHTML = '';
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+        const inner = document.createElement('div');
+        inner.className = 'panel-inner';
+        const text = document.createElement('div');
+        text.className = 'panel-text';
+        text.textContent = message || '';
+        inner.appendChild(text);
+        panel.appendChild(inner);
+        overlayEl.appendChild(panel);
+        clearTimeout(overlayTimer);
+        overlayTimer = setTimeout(() => {
+          overlayEl.className = 'scan-overlay';
+          overlayEl.innerHTML = '';
+        }, durationMs);
+      }
+
+      const probe = getStudentKeysProbe((data.students || [])[0] || {});
+
+      // When typing/scanning student ID, find student (debounced to avoid losing first char)
+      let rlSidTimer = null;
+      sidInput.addEventListener('input', () => {
+        clearTimeout(rlSidTimer);
+        rlSidTimer = setTimeout(() => {
+          // Normalize Khmer numerals to English for matching
+          const current = sidInput.value || '';
+          const converted = convertKhmerToEnglishNumbers ? convertKhmerToEnglishNumbers(current) : current;
+          if (converted !== current) sidInput.value = converted;
+          const raw = converted.trim();
+          sobjId.value = ''; rlStudentGender = ''; rlStudentName = '';
+          if (!raw) return;
+          // Build robust candidate keys and normalization
+          const norm = (v) => {
+            const s = convertKhmerToEnglishNumbers ? convertKhmerToEnglishNumbers(String(v || '')) : String(v || '');
+            return s.toLowerCase().replace(/\s+/g,'').replace(/[-_/\\.]/g,'');
+          };
+          const rawN = norm(raw);
+          const candidates = Array.from(new Set([
+            probe.codeKey,
+            'student_id','code','card','barcode','អត្តលេខ','id'
+          ].filter(Boolean)));
+          const found = (data.students || []).find(stu => {
+            return candidates.some(k => norm(stu[k]) === rawN);
+          });
+          if (found) {
+            rlStudentName = formatStudentName(found, probe);
+            sobjId.value = found[probe.idKey] ?? found.id;
+            rlStudentGender = probe.genderKey ? (found[probe.genderKey] || '') : '';
+            // Show student name in the label area
+            serror.textContent = rlStudentName;
+            isbnInput.focus();
+          } else {
+            // Not found while typing -> only show label; do not focus/select to avoid losing first char
+            serror.textContent = 'រកមិនឃើញអត្តលេខសិស្សនេះទេ។';
+            sidInput.disabled = false; sidInput.readOnly = false;
+          }
+        }, 60);
+      });
+
+      // Prevent default Enter submissions and control flow
+      form.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.keyCode === 13) {
+          event.preventDefault();
+          const active = document.activeElement;
+          if (active && active.id === 'rl-student-id') {
+            if ((sobjId.value || '').trim()) {
+              isbnInput.focus();
+            } else {
+              // Stay on student input until a valid student is scanned; select all for quick rescan
+              serror.textContent = 'រកមិនឃើញអត្តលេខសិស្សនេះទេ។';
+              sidInput.focus(); sidInput.select();
+            }
+            return;
+          }
+          if (active && active.id === 'rl-isbn-input') {
+            if (rlSubmitting) return;
+            clearTimeout(rlIsbnTimer);
+            const converted = convertKhmerToEnglishNumbers(isbnInput.value || '');
+            if (converted !== isbnInput.value) isbnInput.value = converted;
+            const isbn = converted.trim();
+            if (!isbn) return;
+            if (rlCurrentBooks.length >= 1) { isbnInput.value = ''; return; }
+            const foundBook = (data.books || []).find(b => b.isbn && String(b.isbn).toLowerCase() === isbn.toLowerCase());
+            if (foundBook) {
+              rlCurrentBooks.push({ id: foundBook.id, title: foundBook.title });
+              // Update inline label to show student + book title
+              if (rlStudentName && foundBook.title) {
+                serror.textContent = rlStudentName + ' – ' + foundBook.title;
+              }
+              isbnInput.value=''; isbnInput.disabled = true; isbnInput.placeholder = 'បានស្កេន 1 ក្បាល។ ចុច Enter ដើម្បីរក្សាទុក';
+              // Auto submit (guarded by rlSubmitting in submit handler)
+              if (typeof form.requestSubmit === 'function') form.requestSubmit(); else form.submit();
+            } else {
+              // Book not found -> keep focus and select all for quick re-scan
+              isbnInput.focus();
+              isbnInput.select();
+              return;
+            }
+          }
+        }
+      });
+
+      // ISBN input scanning (debounced)
+      isbnInput.addEventListener('input', (e) => {
+        const converted = convertKhmerToEnglishNumbers(e.target.value);
+        if (converted !== e.target.value) e.target.value = converted;
+        clearTimeout(rlIsbnTimer);
+        rlIsbnTimer = setTimeout(() => {
+          const isbn = converted.trim();
+          if (rlCurrentBooks.length >= 1) { e.target.value=''; return; }
+          if (!isbn) return;
+          const foundBook = (data.books || []).find(b => b.isbn && String(b.isbn).toLowerCase() === isbn.toLowerCase());
+          if (foundBook) {
+            rlCurrentBooks.push({ id: foundBook.id, title: foundBook.title });
+            e.target.value=''; e.target.disabled = true; e.target.placeholder = 'បានស្កេន 1 ក្បាល។ ចុច Enter ដើម្បីរក្សាទុក';
+          }
+        }, 300);
+      });
+
+      // Submit -> save to Supabase
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault(); if (!currentUserId) return; if (rlSubmitting) return; rlSubmitting = true;
+        const studentObjId = sobjId.value;
+        const studentName = (rlStudentName || '').trim();
+        if (!studentObjId || !studentName) { showScanOverlay('សូមស្កេនអត្តលេខសិស្សជាមុនសិន។', 'error'); return; }
+        if (rlCurrentBooks.length === 0) { showScanOverlay('សូមស្កេនសៀវភៅយ៉ាងហោចណាស់មួយក្បាល។', 'error'); return; }
+        const logData = {
+          student_id: studentObjId,
+          student_name: studentName,
+          student_gender: rlStudentGender,
+          books: rlCurrentBooks,
+          date_time: new Date().toISOString(),
+          user_id: currentUserId
+        };
+        try {
+          const { error } = await supabase.from('reading_logs').insert([logData]);
+          if (error) {
+            console.error('Error saving reading log: ', error, logData);
+            const msg = 'រក្សាទុកបរាជ័យ! ' + (error.message || '');
+            showScanOverlay(msg.trim(), 'error');
+          } else {
+            try {
+              if (typeof window.loadReadingLogs === 'function') {
+                await window.loadReadingLogs(currentUserId);
+              }
+            } catch (_) { /* noop */ }
+            const firstBookTitle = (rlCurrentBooks[0]?.title || '');
+            const successMsg = `${studentName} ${firstBookTitle}`.trim();
+            showScanOverlay(successMsg || 'រក្សាទុកជោគជ័យ!', 'success', 1000);
+            rlClearForm();
+          }
+        } catch (e) {
+          console.error('Error saving reading log: ', e, logData);
+          const msg = 'រក្សាទុកបរាជ័យ! ' + (e.message || '');
+          showScanOverlay(msg.trim(), 'error');
+        } finally { rlSubmitting = false; }
+      });
+
+      document.getElementById('rl-clear-btn').addEventListener('click', rlClearForm);
+
+      // Initial focus
+      setTimeout(() => { try { document.getElementById('rl-student-id')?.focus(); } catch(_){} }, 0);
     }
 
     // Search
@@ -550,6 +929,38 @@
         .replaceAll('"','&quot;')
         .replaceAll("'",'&#039;');
     }
+
+    (function(){
+      // Global show/hide and active input tracking for ANY input/textarea
+      const vk = document.getElementById('vk');
+      const vkClose = document.getElementById('vk-close');
+      if (!vk) return;
+
+      function show(){ vk.classList.add('show'); vk.setAttribute('aria-hidden','false'); }
+      function hide(){ vk.classList.remove('show'); vk.setAttribute('aria-hidden','true'); window.__vkActiveInput = null; }
+
+      // Track focused editable
+      document.addEventListener('focusin', (e)=>{
+        const t = e.target;
+        if (t && t.matches('input[type="text"], input[type="search"], input:not([type]), textarea, [contenteditable="true"]')) {
+          // Allow opt-out via data-vk="off"
+          if (t.getAttribute('data-vk') === 'off') return;
+          window.__vkActiveInput = t;
+          show();
+        }
+      });
+
+      // Hide when clicking outside inputs and keyboard
+      document.addEventListener('mousedown', (e)=>{
+        if (vk.contains(e.target)) return; // keep open when interacting with keyboard
+        if (e.target.closest('input, textarea, [contenteditable="true"]')) return; // focusing another input shows anyway
+        hide();
+      });
+
+      // Prevent buttons from stealing focus (keeps active element)
+      vk.addEventListener('mousedown', (e)=> e.preventDefault());
+      if (vkClose) vkClose.addEventListener('click', hide);
+    })();
   </script>
   <script>
     // Close interactions for details drawer
@@ -562,6 +973,336 @@
       overlay.addEventListener('click', closeAndRefocus);
       closeBtn.addEventListener('click', closeAndRefocus);
       window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAndRefocus(); });
+    })();
+  </script>
+
+  <!-- Virtual Keyboard Container -->
+  <div id="vk" class="vkeyboard" aria-hidden="true">
+    <div class="vk-rows">
+      <!-- Row 1: ` 1 2 3 4 5 6 7 8 9 0 - = Backspace -->
+      <div class="vk-row">
+        <button class="vk-key" data-code="Backquote" data-char="`">`</button>
+        <button class="vk-key" data-code="Digit1" data-char="1">1</button>
+        <button class="vk-key" data-code="Digit2" data-char="2">2</button>
+        <button class="vk-key" data-code="Digit3" data-char="3">3</button>
+        <button class="vk-key" data-code="Digit4" data-char="4">4</button>
+        <button class="vk-key" data-code="Digit5" data-char="5">5</button>
+        <button class="vk-key" data-code="Digit6" data-char="6">6</button>
+        <button class="vk-key" data-code="Digit7" data-char="7">7</button>
+        <button class="vk-key" data-code="Digit8" data-char="8">8</button>
+        <button class="vk-key" data-code="Digit9" data-char="9">9</button>
+        <button class="vk-key" data-code="Digit0" data-char="0">0</button>
+        <button class="vk-key" data-code="Minus" data-char="-">-</button>
+        <button class="vk-key" data-code="Equal" data-char="=">=</button>
+        <button class="vk-key w3" data-key="BACKSPACE">⌫</button>
+      </div>
+      <!-- Row 2: Tab q w e r t y u i o p [ ] \ -->
+      <div class="vk-row">
+        <button class="vk-key" data-code="KeyQ" data-char="q">q</button>
+        <button class="vk-key" data-code="KeyW" data-char="w">w</button>
+        <button class="vk-key" data-code="KeyE" data-char="e">e</button>
+        <button class="vk-key" data-code="KeyR" data-char="r">r</button>
+        <button class="vk-key" data-code="KeyT" data-char="t">t</button>
+        <button class="vk-key" data-code="KeyY" data-char="y">y</button>
+        <button class="vk-key" data-code="KeyU" data-char="u">u</button>
+        <button class="vk-key" data-code="KeyI" data-char="i">i</button>
+        <button class="vk-key" data-code="KeyO" data-char="o">o</button>
+        <button class="vk-key" data-code="KeyP" data-char="p">p</button>
+        <button class="vk-key" data-code="BracketLeft" data-char="[">[</button>
+        <button class="vk-key" data-code="BracketRight" data-char="]">]</button>
+        <button class="vk-key" data-code="Backslash" data-char="\\">\</button>
+      </div>
+      <!-- Row 3: Caps a s d f g h j k l ; ' Enter -->
+      <div class="vk-row">
+        <button class="vk-key w2 toggle" data-key="CAPS">Caps</button>
+        <button class="vk-key" data-code="KeyA" data-char="a">a</button>
+        <button class="vk-key" data-code="KeyS" data-char="s">s</button>
+        <button class="vk-key" data-code="KeyD" data-char="d">d</button>
+        <button class="vk-key" data-code="KeyF" data-char="f">f</button>
+        <button class="vk-key" data-code="KeyG" data-char="g">g</button>
+        <button class="vk-key" data-code="KeyH" data-char="h">h</button>
+        <button class="vk-key" data-code="KeyJ" data-char="j">j</button>
+        <button class="vk-key" data-code="KeyK" data-char="k">k</button>
+        <button class="vk-key" data-code="KeyL" data-char="l">l</button>
+        <button class="vk-key" data-code="Semicolon" data-char=";">;</button>
+        <button class="vk-key" data-code="Quote" data-char="'">'</button>
+        <button class="vk-key w2" data-key="ENTER">Enter</button>
+      </div>
+      <!-- Row 4: Shift \ z x c v b n m , . / Shift -->
+      <div class="vk-row">
+        <button class="vk-key w3 toggle" data-key="SHIFT">Shift</button>
+        <button class="vk-key" data-code="IntlBackslash" data-char="\\">\\</button>
+        <button class="vk-key" data-code="KeyZ" data-char="z">z</button>
+        <button class="vk-key" data-code="KeyX" data-char="x">x</button>
+        <button class="vk-key" data-code="KeyC" data-char="c">c</button>
+        <button class="vk-key" data-code="KeyV" data-char="v">v</button>
+        <button class="vk-key" data-code="KeyB" data-char="b">b</button>
+        <button class="vk-key" data-code="KeyN" data-char="n">n</button>
+        <button class="vk-key" data-code="KeyM" data-char="m">m</button>
+        <button class="vk-key" data-code="Comma" data-char=",">,</button>
+        <button class="vk-key" data-code="Period" data-char=".">.</button>
+        <button class="vk-key" data-code="Slash" data-char="/">/</button>
+        <button class="vk-key w3 toggle" data-key="SHIFT">Shift</button>
+      </div>
+      <!-- Row 5: Alt Space AltGr Settings -->
+      <div class="vk-row">
+        <button class="vk-key w2" data-key="ALT">Alt</button>
+        <button class="vk-key space" data-key="SPACE">Space</button>
+        <button class="vk-key w2" data-key="ALTGR">AltGr</button>
+        <button class="vk-key w2" data-key="SETTINGS"></button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      const vk = document.getElementById('vk');
+      const rows = document.querySelector('.vk-rows');
+      if (!vk || !rows) return;
+
+      function getInput(){ return window.__vkActiveInput || null; }
+
+      let caps = false;     // CapsLock state
+      let shift = false;    // Shift one-shot
+      let altgr = false;    // AltGr one-shot (Right-Alt / Ctrl+Alt)
+      let lang = 'EN';      // EN | KH
+
+      const shiftMap = {
+        '`':'~','1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')','-':'_','=':'+',
+        '[':'{',']':'}','\\':'|',';':':','\'':'"',',':'<','.':'>','/':'?'
+      };
+
+      // Khmer numerals mapping for number row in NiDA
+      const khNumerals = {
+        'Digit0':'០','Digit1':'១','Digit2':'២','Digit3':'៣','Digit4':'៤',
+        'Digit5':'៥','Digit6':'៦','Digit7':'៧','Digit8':'៨','Digit9':'៩'
+      };
+
+      // AltGr (third-level) outputs for NiDA (based on kbdlayout.info JSON)
+      const khAltGr = {
+        Backquote: '\u200D', // ZWJ
+        Digit1: '\u200C',    // ZWNJ
+        Digit2: '@',
+        Digit3: '\u17D1',    // ៑
+        Digit4: '$',
+        Digit5: '\u20AC',    // €
+        Digit6: '\u17D9',    // ៙
+        Digit7: '\u17DA',    // ៚
+        Digit8: '*',
+        Digit9: '{',
+        Digit0: '}',
+        Minus: '\u00D7',     // ×
+        Equal: '\u17CE',     // ៎
+        // Letter row (Q–U)
+        KeyQ: 'ឯ', KeyW: 'ឫ', KeyE: 'ឦ', KeyR: 'ឱ', KeyT: 'ឰ', KeyY: 'ឩ', KeyU: 'ឳ',
+        // Right-side punctuation
+        Backslash: '\\',
+        Semicolon: '៖', Quote: 'ៈ',
+        Comma: ',', Period: '.', Slash: '/'
+      };
+
+      // Khmer (NiDA) base and shift mappings by physical key code
+      const khShift = {
+        Backquote: '«',
+        KeyQ: 'ឆ', KeyW: 'ឹ', KeyE: 'េ', KeyR: 'រ', KeyT: 'ត', KeyY: 'យ', KeyU: 'ុ', KeyI: 'ិ', KeyO: 'ោ', KeyP: 'ផ',
+        BracketLeft: 'ៀ', BracketRight: 'ឪ', Backslash: 'ឮ',
+        KeyA: 'ា', KeyS: 'ស', KeyD: 'ដ', KeyF: 'ថ', KeyG: 'ហ', KeyH: 'ហ', KeyJ: '្', KeyK: 'ក', KeyL: 'ល', Semicolon: 'ើ', Quote: '់',
+        // IntlBackslash often unused on this layout; leave as-is
+        KeyZ: 'ឋ', KeyX: 'ខ', KeyC: 'ច', KeyV: 'វ', KeyB: 'ប', KeyN: 'ន', KeyM: 'ម',
+        Comma: 'ុំ', Period: '។', Slash: '៊'
+      };
+      const khBase = {
+        Backquote: '»',
+        Digit1: '!', Digit2: 'ៗ', Digit3: '"', Digit4: '៛', Digit5: '%',
+        Digit6: '៍', Digit7: '័', Digit8: '៏', Digit9: '(', Digit0: ')',
+        Minus: '៌', Equal: '=',
+        KeyQ: 'ឈ', KeyW: 'ឺ', KeyE: 'ែ', KeyR: 'ឬ', KeyT: 'ទ', KeyY: 'ួ', KeyU: 'ូ', KeyI: 'ី', KeyO: 'ៅ', KeyP: 'ភ',
+        BracketLeft: 'ឿ', BracketRight: 'ឧ', Backslash: 'ឭ',
+        KeyA: 'ាំ', KeyS: 'ៃ', KeyD: 'ឌ', KeyF: 'ធ', KeyG: 'អ', KeyH: 'ះ', KeyJ: 'ញ', KeyK: 'គ', KeyL: 'ឡ', Semicolon: 'ោះ', Quote: '៉',
+        KeyZ: 'ឍ', KeyX: 'ឃ', KeyC: 'ជ', KeyV: 'េះ', KeyB: 'ព', KeyN: 'ណ', KeyM: 'ំ',
+        Comma: 'ុះ', Period: '៕', Slash: '?'
+      };
+
+      function currentTitle(){ return `Keyboard — ${lang}`; }
+      function setTitle(){ const t = vk.querySelector('.vk-title'); if (t) t.textContent = currentTitle(); }
+      function setLangIndicators(){
+        setTitle();
+        const s = vk.querySelector('.vk-key[data-key="SETTINGS"]');
+        if (s) {
+          const badge = `<span style="display:inline-flex;align-items:center;justify-content:center;background:#e53935;color:#fff;border-radius:50%;width:22px;height:22px;font-weight:700;font-size:11px;line-height:22px;">${lang}</span>`;
+          s.innerHTML = badge;
+        }
+      }
+      setLangIndicators();
+      // Initial render of key labels
+      updateKeyLabels();
+
+      function applyCase(ch){
+        if (lang === 'EN' && /^[a-z]$/i.test(ch)) {
+          const upper = caps ^ shift; // XOR
+          return upper ? ch.toUpperCase() : ch.toLowerCase();
+        }
+        if (lang === 'EN' && shift && shiftMap[ch]) return shiftMap[ch];
+        return ch;
+      }
+
+      function commit(ch){
+        const input = getInput(); if (!input) return;
+        input.value = (input.value || '') + ch;
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+        // one-shot modifiers
+        let toggled = false;
+        if (shift) { shift = false; toggled = true; }
+        if (altgr) { altgr = false; toggled = true; }
+        if (toggled) { updateToggles(); updateKeyLabels(); }
+      }
+
+      function backspace(){
+        const input = getInput(); if (!input) return;
+        input.value = (input.value || '').slice(0,-1);
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+
+      function enter(){
+        // Dispatch Enter to active element
+        const input = getInput(); if (!input) return;
+        input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
+        input.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+
+      function updateToggles(){
+        document.querySelectorAll('.vk-key.toggle[data-key="CAPS"]').forEach(k=>k.classList.toggle('on', caps));
+        document.querySelectorAll('.vk-key.toggle[data-key="SHIFT"]').forEach(k=>k.classList.toggle('on', shift));
+        document.querySelectorAll('.vk-key[data-key="ALTGR"]').forEach(k=>k.classList.toggle('on', altgr));
+      }
+
+      function updateKeyLabels(){
+        document.querySelectorAll('.vk-key[data-code]').forEach(btn => {
+          const code = btn.dataset.code;
+          const baseChar = btn.dataset.char || '';
+          if (lang === 'KH') {
+            // AltGr active: show mapping or blank if unmapped
+            if (altgr) { btn.textContent = khAltGr[code] || ''; return; }
+            const shiftOn = Boolean(shift ^ caps);
+            // NOTE: User swapped maps: khBase holds shifted; khShift holds base
+            const baseMapKH = khShift;
+            const shiftMapKH = khBase;
+            if (shiftOn) {
+              if (shiftMapKH[code]) { btn.textContent = shiftMapKH[code]; return; }
+              if (baseChar && shiftMap[baseChar]) { btn.textContent = shiftMap[baseChar]; return; }
+            }
+            if (khNumerals[code]) { btn.textContent = khNumerals[code]; return; }
+            if (baseMapKH[code]) { btn.textContent = baseMapKH[code]; return; }
+            btn.textContent = baseChar;
+            return;
+          }
+          if (lang === 'EN') {
+            const shiftOn = Boolean(shift ^ caps);
+            if (shiftOn) {
+              if (baseChar && /^[a-z]$/i.test(baseChar)) { btn.textContent = baseChar.toUpperCase(); return; }
+              if (baseChar && shiftMap[baseChar]) { btn.textContent = shiftMap[baseChar]; return; }
+            }
+            btn.textContent = baseChar || btn.textContent;
+            return;
+          }
+        });
+      }
+
+      rows.addEventListener('click', (e)=>{
+        const key = e.target.closest('.vk-key');
+        if (!key) return;
+        const dataKey = key.dataset.key;
+        const dataChar = key.dataset.char;
+        const code = key.dataset.code;
+        if (dataKey === 'BACKSPACE') return void backspace();
+        if (dataKey === 'ENTER') return void enter();
+        if (dataKey === 'SPACE') return void commit(' ');
+        if (dataKey === 'CAPS') { caps = !caps; updateToggles(); updateKeyLabels(); return; }
+        if (dataKey === 'SHIFT') { shift = !shift; updateToggles(); updateKeyLabels(); return; }
+        if (dataKey === 'ALTGR') { altgr = !altgr; updateToggles(); updateKeyLabels(); return; }
+        if (dataKey === 'SETTINGS') {
+          lang = (lang === 'EN') ? 'KH' : 'EN';
+          setLangIndicators();
+          updateKeyLabels();
+          return;
+        }
+        // Ignore modifiers
+        if (dataKey === 'TAB' || dataKey === 'CTRL' || dataKey === 'WIN' || dataKey === 'ALT') return;
+
+        // Output by language
+        if (lang === 'KH') {
+          // AltGr active: only commit mapped keys; otherwise block input
+          if (altgr) {
+            if (code && khAltGr[code]) return void commit(khAltGr[code]);
+            return; // no mapping -> do nothing
+          }
+          // AltGr not active: proceed with base/shift logic
+          const shiftOn = Boolean(shift ^ caps); // Caps acts as shift-lock in KH
+          // NOTE: User swapped maps: khBase holds shifted; khShift holds base
+          const baseMapKH = khShift;
+          const shiftMapKH = khBase;
+          if (shiftOn) {
+            // Shifted Khmer letters/symbols
+            if (code && shiftMapKH[code]) return void commit(shiftMapKH[code]);
+            // Shifted ASCII for digits/punct (e.g., 1 -> !)
+            if (dataChar && shiftMap[dataChar]) return void commit(shiftMap[dataChar]);
+          } else {
+            // Base Khmer numerals for number row
+            if (code && khNumerals[code]) return void commit(khNumerals[code]);
+            // Base Khmer letters/symbols
+            if (code && baseMapKH[code]) return void commit(baseMapKH[code]);
+          }
+          if (dataChar) return void commit(dataChar); // fallback
+          return;
+        }
+        if (lang === 'EN') {
+          if (shift && shiftMap[dataChar]) return void commit(shiftMap[dataChar]);
+          if (dataChar) return void commit(dataChar);
+          return;
+        }
+      });
+    })();
+  </script>
+  <script>
+    // 5s inactivity on search box -> focus student card scan input
+    (function(){
+      const IDLE_MS = 5000;
+      let idleTimer = null;
+      function resetTimer(){
+        if (idleTimer) clearTimeout(idleTimer);
+        // Do not schedule auto-focus if user is currently in scan inputs
+        const activeId = (document.activeElement && document.activeElement.id) || '';
+        if (activeId === 'rl-student-id' || activeId === 'rl-isbn-input') return;
+        idleTimer = setTimeout(() => {
+          // Re-check active element before acting
+          const currentActiveId = (document.activeElement && document.activeElement.id) || '';
+          if (currentActiveId === 'rl-student-id' || currentActiveId === 'rl-isbn-input') return;
+          const search = document.getElementById('search-input');
+          if (!search) return;
+          // Only clear and move focus if search is still the context
+          if (currentActiveId === 'search-input' || !currentActiveId) {
+            search.value = '';
+            try { search.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+            const studentInput = document.getElementById('rl-student-id');
+            if (studentInput) studentInput.focus();
+          }
+        }, IDLE_MS);
+      }
+      function bind(){
+        const search = document.getElementById('search-input');
+        if (!search) return;
+        ['input','keydown','keyup','click','focus'].forEach(evt => search.addEventListener(evt, resetTimer));
+        ['blur'].forEach(evt => search.addEventListener(evt, () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = null;
+        }));
+        // Start the initial timer when the page loads
+        resetTimer();
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+      } else {
+        bind();
+      }
     })();
   </script>
 </body>

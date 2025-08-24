@@ -602,7 +602,13 @@
                     
                     <!-- Reading Log Page -->
                     <div id="page-reading-log" class="page hidden">
-                        <h2 class="text-3xl font-bold text-gray-800 mb-4 no-print">កត់ត្រាការចូលអាន</h2>
+                        <div class="flex items-center justify-between mb-4 no-print">
+                            <h2 class="text-3xl font-bold text-gray-800">កត់ត្រាការចូលអាន</h2>
+                            <a href="searchbook.html" class="inline-flex items-center bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 text-sm font-semibold">
+                                <i class="fa-solid fa-bolt mr-2"></i>
+                                ទៅទំព័រចូលអានរហ័ស
+                            </a>
+                        </div>
                         <div class="bg-white p-6 rounded-lg shadow-md mb-6 no-print">
                             <form id="reading-log-form">
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -823,6 +829,13 @@
                                         <p id="change-password-success" class="text-green-500 text-sm"></p>
                                         <button type="submit" class="w-full bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600">ផ្លាស់ប្តូរពាក្យសម្ងាត់</button>
                                     </form>
+                                    <!-- NEW: Create New Account Button -->
+                                    <div class="mt-4 pt-4 border-t">
+                                        <a href="admin.html" class="w-full inline-flex items-center justify-center bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600">
+                                            <i class="fas fa-user-plus mr-2"></i>
+                                            បង្កើតគណនេយ្យថ្មី
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                             <!-- Right Column: Data & Danger Zone -->

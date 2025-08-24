@@ -158,7 +158,7 @@
         padding: 0;
       }
 
-      .controls, #loading {
+      .controls, #loading, .home-btn {
         display: none;
       }
 
@@ -166,6 +166,16 @@
         page-break-inside: avoid;
       }
     }
+    /* Home button (top-right, consistent with searchbook.html) */
+    .home-btn {
+      position: fixed; top: 12px; right: 16px; z-index: 50;
+      background: #10b981; color: #ffffff; border: 1px solid #059669;
+      padding: 8px 14px; border-radius: 9999px; font-weight: 700; cursor: pointer;
+      text-decoration: none; box-shadow: 0 4px 20px rgba(0,0,0,.06);
+      transition: box-shadow .2s, transform .05s, background .2s;
+    }
+    .home-btn:hover { box-shadow: 0 8px 28px rgba(0,0,0,.12); }
+    .home-btn:active { transform: translateY(1px); background:#059669; }
   </style>
 
   <!-- Font Awesome for icons -->
@@ -176,10 +186,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
+  <a href="index.html" class="home-btn"><i class="fas fa-home" aria-hidden="true"></i> ទំព័រដើម</a>
   <div class="controls">
-    <button onclick="window.location.href='index.html'" style="background-color: #4CAF50; color: white; margin-right: 10px;">
-      <i class="fas fa-home" style="margin-right: 5px;"></i>ទៅទំព័រដើម
-    </button>
     <select id="classFilter">
       <option value="">ថ្នាក់ទាំងអស់</option>
     </select>
