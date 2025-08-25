@@ -6,6 +6,11 @@ h1, h2, h3, .font-koulen {
     font-family: 'Koulen', cursive;
 }
 
+/* Utility: prevent wrapping */
+.no-wrap {
+    white-space: nowrap;
+}
+
 .print-only {
     display: none;
 }
@@ -543,6 +548,50 @@ select:focus {
     /* --- END: FINAL FIX FOR STUDENT CARD PRINTING --- */
 }
 /* ========== END: REVISED PRINT STYLES ========== */
+
+/* === Reading Log: ensure only the intended section prints === */
+@media print {
+  /* When printing grouped summary, hide detailed table */
+  body.printing-reading-log-grouped #reading-log-print-area {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  body.printing-reading-log-grouped #reading-log-grouped-area {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Hide the title in the grouped-by-book print report */
+  body.printing-reading-log-grouped #reading-log-grouped-area h3 {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* When printing detailed reading log (default), hide grouped area */
+  body.printing-page-reading-log:not(.printing-reading-log-grouped) #reading-log-grouped-area {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
+/* NEW: Upper title above report title for grouped-by-book reading log (print only) */
+@media print {
+  #print-header .print-upper-title {
+    font-family: 'Khmer OS Muol Light', sans-serif;
+    font-size: 12pt;
+    text-align: center;
+    margin-top: 4px;
+    margin-bottom: 2px;
+  }
+}
+
+/* Center the main report title in print header */
+@media print {
+  #print-header .report-title {
+    width: 100%;
+    text-align: center !important;
+  }
+}
 
 /* Global footer style for all print pages */
 @media print {

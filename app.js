@@ -17,6 +17,15 @@ const convertKhmerToEnglishNumbers = (text) => {
     return text.replace(/[០-៩]/g, (match) => khmerToEnglish[match] || match);
 };
 
+// Helper: format ISO date (YYYY-MM-DD) to DD/MM/YYYY for print titles
+const formatDateDDMMYYYY = (iso) => {
+    if (!iso || typeof iso !== 'string') return iso || '';
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    return `${d}/${mo}/${y}`;
+};
+
 console.log('Supabase import successful');
 
 // Supabase configuration
@@ -354,6 +363,49 @@ let loanSortKey = 'loan_date'; // one of: 'serial','borrower','title','loan_date
 let loanSortDir = 'desc'; // 'asc' | 'desc'
 let loanSortSetupDone = false; // prevent duplicate listeners
 
+// --- READING LOG SORT STATE ---
+let readingLogSortKey = 'date'; // 'date' | 'title'
+let readingLogSortDir = 'desc'; // 'asc' | 'desc'
+let readingLogSortSetupDone = false; // prevent duplicate listeners
+
+// Helper: extract a displayable books string from a reading log
+const getBooksReadString = (log) => {
+    let booksRead = 'N/A';
+    if (log && log.books) {
+        try {
+            const booksData = typeof log.books === 'string' ? JSON.parse(log.books) : log.books;
+            if (Array.isArray(booksData)) {
+                booksRead = booksData.map(b => b?.title || b).join(', ');
+            } else if (booksData && typeof booksData === 'object') {
+                booksRead = booksData.title || booksData.toString();
+            } else {
+                booksRead = booksData?.toString?.() || 'N/A';
+            }
+        } catch (_) {
+            booksRead = log.books.toString();
+        }
+    }
+    return booksRead;
+};
+
+// --- READING LOG SORT HEADER CLICK LISTENER ---
+const setupReadingSortListeners = () => {
+    const titleHeader = document.getElementById('reading-sort-title');
+    if (!titleHeader) return;
+    if (titleHeader.getAttribute('data-bound') === 'true') return;
+    titleHeader.setAttribute('data-bound', 'true');
+
+    titleHeader.addEventListener('click', () => {
+        if (readingLogSortKey === 'title') {
+            readingLogSortDir = readingLogSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            readingLogSortKey = 'title';
+            readingLogSortDir = 'asc';
+        }
+        renderReadingLogs();
+    });
+};
+
 const authContainer = document.getElementById('auth-container');
 const appContainer = document.getElementById('app-container');
 const loadingOverlay = document.getElementById('loading-overlay');
@@ -536,6 +588,8 @@ const navigateTo = (pageId) => {
     if (pageId === 'reading-log') {
         window.clearReadingLogForm();
         setTimeout(() => document.getElementById('reading-log-student-id').focus(), 100);
+        // Ensure reading log sort header is bound
+        try { setupReadingSortListeners(); } catch (_) { /* noop */ }
     }
     if (pageId === 'students') {
         // Focus search on Students page
@@ -810,8 +864,8 @@ const renderLoans = () => {
             <td class="p-3">${index + 1}</td>
             <td class="p-3">${g.borrower}</td>
             <td class="p-3">${titlesText}</td>
-            <td class="p-3">${g.loan_date}</td>
-            <td class="p-3">${g.return_date || 'N/A'}</td>
+            <td class="p-3">${g.loan_date ? formatDateDDMMYYYY(g.loan_date) : ''}</td>
+            <td class="p-3">${g.return_date && g.return_date !== 'N/A' ? formatDateDDMMYYYY(g.return_date) : 'N/A'}</td>
             <td class="p-3"><span class="px-2 py-1 text-xs rounded-full ${statusClass}">${g.status}</span></td>
             <td class="p-3 no-print">${actionsHTML}</td>
         `;
@@ -883,7 +937,7 @@ const renderClassLoans = () => {
             <td class="p-3">${index + 1}</td>
             <td class="p-3">${g.class_name}</td>
             <td class="p-3">${g.titles.join(', ')}</td>
-            <td class="p-3">${g.loan_date}</td>
+            <td class="p-3">${g.loan_date ? formatDateDDMMYYYY(g.loan_date) : ''}</td>
             <td class="p-3">
                 <span class="font-bold ${g.allReturned ? 'text-green-600' : 'text-orange-600'}">
                     សងបាន: ${g.totalReturned} / ${g.totalLoaned}
@@ -1053,36 +1107,182 @@ const renderReadingLogs = () => {
         return;
     }
 
-    const sortedLogs = [...filtered].sort((a,b) => new Date(b.date_time) - new Date(a.date_time));
-    sortedLogs.forEach((log, index) => {
-        const row = document.createElement('tr');
-        row.className = 'border-b';
-        let booksRead = 'N/A';
-        if (log.books) {
-            try {
-                // Handle both JSON string and array formats
-                const booksData = typeof log.books === 'string' ? JSON.parse(log.books) : log.books;
-                if (Array.isArray(booksData)) {
-                    booksRead = booksData.map(b => b.title || b).join(', ');
-                } else {
-                    booksRead = booksData.title || booksData;
-                }
-            } catch (e) {
-                // If parsing fails, try to display as string
-                booksRead = log.books.toString();
-            }
-        }
-        row.innerHTML = `
-            <td class="p-3">${index + 1}</td>
-            <td class="p-3">${new Date(log.date_time).toLocaleString('en-GB')}</td>
-            <td class="p-3">${log.student_name}</td>
-            <td class="p-3">${booksRead}</td>
-            <td class="p-3 no-print">
-                <button onclick="window.deleteReadingLog('${log.id}')" class="text-red-500 hover:text-red-700" title="លុប"><i class="fas fa-trash"></i></button>
-            </td>
-        `;
-        readingLogHistory.appendChild(row);
+    // Apply sorting
+    const sortedLogs = [...filtered];
+    if (readingLogSortKey === 'title') {
+        sortedLogs.sort((a, b) => {
+            const ta = getBooksReadString(a).toLowerCase();
+            const tb = getBooksReadString(b).toLowerCase();
+            const cmp = ta.localeCompare(tb);
+            return readingLogSortDir === 'asc' ? cmp : -cmp;
+        });
+    } else {
+        // default by date_time
+        sortedLogs.sort((a, b) => {
+            const cmp = new Date(a.date_time) - new Date(b.date_time);
+            return readingLogSortDir === 'asc' ? cmp : -cmp;
+        });
+    }
+
+    // Build groups by date (YYYY-MM-DD)
+    const byDate = new Map();
+    sortedLogs.forEach(log => {
+        const key = (log.date_time || '').split('T')[0] || 'N/A';
+        if (!byDate.has(key)) byDate.set(key, []);
+        byDate.get(key).push(log);
     });
+
+    // Sort dates according to current sort key/dir
+    const dateKeys = Array.from(byDate.keys());
+    const sortedDates = dateKeys.sort((a, b) => {
+        // Default: sort by date
+        const cmp = new Date(a) - new Date(b);
+        return readingLogSortDir === 'asc' ? cmp : -cmp;
+    });
+
+    // Helper for extracting titles array from a log entry
+    const getBooksArrayForAgg = (log) => {
+        if (!log || !log.books) return [];
+        try {
+            const data = typeof log.books === 'string' ? JSON.parse(log.books) : log.books;
+            if (Array.isArray(data)) {
+                return data.map(b => (typeof b === 'string' ? b : (b.title || ''))).filter(Boolean);
+            }
+            if (typeof data === 'object' && data) {
+                return [data.title || data.name || String(data)].filter(Boolean);
+            }
+            return [String(data)].filter(Boolean);
+        } catch (e) {
+            return [String(log.books)].filter(Boolean);
+        }
+    };
+
+    // Render grouped: date header -> student rows
+    let dateIndex = 0;
+    sortedDates.forEach(dateKey => {
+        dateIndex += 1;
+        const logsInDate = byDate.get(dateKey) || [];
+
+        // Aggregate by student within the date
+        const byStudent = new Map(); // name -> array of { title, id }
+        logsInDate.forEach(l => {
+            const name = (l.student_name || 'មិនស្គាល់').trim();
+            const titles = getBooksArrayForAgg(l);
+            if (!byStudent.has(name)) byStudent.set(name, []);
+            byStudent.get(name).push(...titles.map(t => ({ title: t, id: l.id })));
+        });
+
+        // Optionally sort students
+        const studentsSorted = Array.from(byStudent.entries()).sort((a, b) => {
+            if (readingLogSortKey === 'title') {
+                const aStr = (a[1] || []).map(x => x.title).join(', ').toLowerCase();
+                const bStr = (b[1] || []).map(x => x.title).join(', ').toLowerCase();
+                return readingLogSortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+            }
+            // default sort by student name asc
+            return a[0].localeCompare(b[0]);
+        });
+
+        // Date header row
+        const headerTr = document.createElement('tr');
+        headerTr.className = 'bg-gray-100';
+        const displayDate = (() => {
+            try {
+                const dt = new Date(dateKey);
+                const dd = String(dt.getDate()).padStart(2, '0');
+                const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                const yyyy = dt.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+            } catch (_) { return dateKey; }
+        })();
+        headerTr.innerHTML = `
+            <td class="p-3 font-semibold">${dateIndex}</td>
+            <td class="p-3 font-semibold no-wrap" colspan="4">កាលបរិច្ឆេទ: ${displayDate}</td>
+        `;
+        readingLogHistory.appendChild(headerTr);
+
+        // Student rows under this date
+        studentsSorted.forEach(([studentName, entries]) => {
+            const booksStr = (entries || []).map(x => x.title).join(', ');
+            const delBtn = `
+                <button onclick="window.deleteStudentLogsForDateAndStudent('${encodeURIComponent(dateKey)}','${encodeURIComponent(studentName)}')"
+                        class="text-red-500 hover:text-red-700 inline-block"
+                        title="លុបកំណត់ត្រ សម្រាប់សិស្សម្នាក់ក្នុងថ្ងៃនេះ">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            const tr = document.createElement('tr');
+            tr.className = 'border-b';
+            tr.innerHTML = `
+                <td class="p-3"></td>
+                <td class="p-3"></td>
+                <td class="p-3 no-wrap">${studentName}</td>
+                <td class="p-3">${booksStr}</td>
+                <td class="p-3 no-print">${delBtn}</td>
+            `;
+            readingLogHistory.appendChild(tr);
+        });
+    });
+
+    // Grouped-by-book rendering
+    const groupedBody = document.getElementById('reading-log-grouped-body');
+    if (groupedBody) {
+        groupedBody.innerHTML = '';
+
+        // Helper: extract array of titles from a log
+        const getBooksArray = (log) => {
+            if (!log || !log.books) return [];
+            try {
+                const data = typeof log.books === 'string' ? JSON.parse(log.books) : log.books;
+                if (Array.isArray(data)) {
+                    return data.map(b => (typeof b === 'string' ? b : (b.title || ''))).filter(Boolean);
+                }
+                if (typeof data === 'object' && data) {
+                    return [data.title || data.name || String(data)].filter(Boolean);
+                }
+                return [String(data)].filter(Boolean);
+            } catch (e) {
+                return [String(log.books)].filter(Boolean);
+            }
+        };
+
+        // Build: title -> student -> count
+        const byTitle = new Map();
+        filtered.forEach(log => {
+            const titles = getBooksArray(log);
+            const student = log.student_name || 'មិនស្គាល់';
+            titles.forEach(title => {
+                const key = title.trim();
+                if (!key) return;
+                if (!byTitle.has(key)) byTitle.set(key, new Map());
+                const studentsMap = byTitle.get(key);
+                studentsMap.set(student, (studentsMap.get(student) || 0) + 1);
+            });
+        });
+
+        if (byTitle.size === 0) {
+            groupedBody.innerHTML = `<tr><td colspan="3" class="text-center p-4 text-gray-500">មិនទាន់មានទិន្នន័យ</td></tr>`;
+            return;
+        }
+
+        // Sort titles alphabetically
+        const titlesSorted = Array.from(byTitle.keys()).sort((a, b) => a.localeCompare(b));
+        titlesSorted.forEach((title, idx) => {
+            const studentsMap = byTitle.get(title);
+            // Sort students by count desc then name asc
+            const studentsList = Array.from(studentsMap.entries())
+                .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+                .map(([name, count]) => `${name} (${count}ដង)`);
+            const tr = document.createElement('tr');
+            tr.className = 'border-b';
+            tr.innerHTML = `
+                <td class="p-3">${idx + 1}</td>
+                <td class="p-3">${title}</td>
+                <td class="p-3">${studentsList.join(', ')}</td>
+            `;
+            groupedBody.appendChild(tr);
+        });
+    }
 };
 
 const updateDashboard = () => {
@@ -1823,6 +2023,8 @@ function updateSettingsUI(data) {
         } else {
             if (sidebarSchoolName) sidebarSchoolName.textContent = '';
             if (printSchoolName) printSchoolName.textContent = '';
+            // Clear input when school name has been deleted
+            schoolNameInput.value = '';
             schoolNameDisplay.classList.add('hidden');
             schoolNameInput.classList.remove('hidden');
             saveSchoolNameBtn.classList.remove('hidden');
@@ -1843,6 +2045,8 @@ function updateSettingsUI(data) {
             editAcademicYearBtn.classList.remove('hidden');
             deleteAcademicYearBtn.classList.remove('hidden');
         } else {
+            // Clear input when academic year has been deleted
+            academicYearInput.value = '';
             academicYearDisplay.classList.add('hidden');
             academicYearInput.classList.remove('hidden');
             saveAcademicYearBtn.classList.remove('hidden');
@@ -2054,16 +2258,42 @@ document.getElementById('fetch-data-btn').addEventListener('click', async () => 
         console.log('Parsed data:', parsedData.slice(0, 3));
         
         if (parsedData.length === 0) { 
-            alert('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។'); 
+            try {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។', 'bg-red-600');
+                } else {
+                    alert('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។');
+                }
+            } catch (_) { alert('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។'); }
             return; 
         }
         
         await syncStudentsToSupabase(parsedData);
-        alert(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ។`);
+        // Use overlay toast instead of browser alert, then refresh page
+        try {
+            if (typeof window.showToast === 'function') {
+                window.showToast(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`, 'bg-green-600');
+                // Give users a moment to read the toast, then refresh
+                setTimeout(() => { window.location.reload(); }, 1500);
+            } else {
+                alert(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`);
+                window.location.reload();
+            }
+        } catch (_) {
+            alert(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`);
+            window.location.reload();
+        }
         
     } catch (error) { 
         console.error('Failed to fetch or process student data:', error); 
-        alert('ការទាញយកទិន្នន័យបានបរាជ័យ។\n\nបញ្ហាអាចមកពី:\n- Link មិនត្រឹមត្រូវ\n- Sheet មិនបាន Publish to web\n- ការតភ្ជាប់ Internet\n- CORS policy\n\nError: ' + error.message);
+        const msg = 'ការទាញយកទិន្នន័យបានបរាជ័យ។\nបញ្ហាអាចមកពី:\n- Link មិនត្រឹមត្រូវ\n- Sheet មិនបាន Publish to web\n- ការតភ្ជាប់ Internet\n- CORS policy\n\nError: ' + (error?.message || 'Unknown');
+        try {
+            if (typeof window.showToast === 'function') {
+                window.showToast(msg, 'bg-red-600');
+            } else {
+                alert(msg);
+            }
+        } catch (_) { alert(msg); }
     } finally { 
         loadingOverlay.classList.add('hidden'); 
     }
@@ -3800,6 +4030,47 @@ window.deleteReadingLog = (id) => {
     window.openReadingDeleteModal(id);
 };
 
+// Delete all logs for a given date (YYYY-MM-DD) and student name
+window.deleteStudentLogsForDateAndStudent = async (encodedDateKey, encodedStudentName) => {
+    if (!currentUserId) return;
+    const dateKey = decodeURIComponent(encodedDateKey);
+    const studentName = (decodeURIComponent(encodedStudentName) || '').trim();
+    // Collect matching log IDs
+    const toDelete = (readingLogs || []).filter(r => {
+        const d = (r.date_time || '').split('T')[0];
+        const n = (r.student_name || '').trim();
+        return d === dateKey && n === studentName;
+    }).map(r => r.id);
+
+    if (!toDelete.length) {
+        alert('មិនមានកំណត់ត្រាត្រូវលុបទេ។');
+        return;
+    }
+
+    // Format date for confirmation
+    const displayDate = (() => {
+        try {
+            const dt = new Date(dateKey);
+            const dd = String(dt.getDate()).padStart(2, '0');
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            const yyyy = dt.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        } catch { return dateKey; }
+    })();
+
+    const ok = confirm(`តើអ្នកពិតជាចង់លុបកំណត់ត្រាចូលអាន របស់ \nសិស្សឈ្មោះ ${studentName} \nនៅថ្ងៃ ${displayDate} \nចំនួន ${toDelete.length} កំណត់ត្រា មែនទេ?`);
+    if (!ok) return;
+
+    // Delete sequentially to reuse existing logic and toasts
+    for (const id of toDelete) {
+        try {
+            await window.performDeleteReadingLog(id);
+        } catch (e) {
+            console.error('Batch delete error: ', e);
+        }
+    }
+};
+
 // --- EXPORT DATA TO EXCEL ---
 const exportData = () => {
     const select = document.getElementById('export-data-select');
@@ -4414,7 +4685,9 @@ window.printReport = () => {
                 const endDateLoans = document.getElementById('loan-filter-end-date').value;
                 title = 'បញ្ជីការខ្ចី-សងបុគ្គល';
                 if (startDateLoans && endDateLoans) {
-                    title += ` ពីថ្ងៃ ${startDateLoans} ដល់ថ្ងៃ ${endDateLoans}`;
+                    const s = formatDateDDMMYYYY(startDateLoans);
+                    const e = formatDateDDMMYYYY(endDateLoans);
+                    title += ` ពីថ្ងៃ ${s} ដល់ថ្ងៃ ${e}`;
                 }
                 break;
             case 'page-class-loans':
@@ -4423,9 +4696,11 @@ window.printReport = () => {
             case 'page-reading-log':
                 const startDateLogs = document.getElementById('reading-log-filter-start-date').value;
                 const endDateLogs = document.getElementById('reading-log-filter-end-date').value;
-                title = 'បញ្ជីកត់ត្រាការចូលអាន';
+                title = 'បញ្ជីឈ្មោះសិស្សចូលអានសរុបតាមថ្ងៃ';
                 if (startDateLogs && endDateLogs) {
-                    title += ` ពីថ្ងៃ ${startDateLogs} ដល់ថ្ងៃ ${endDateLogs}`;
+                    const s = formatDateDDMMYYYY(startDateLogs);
+                    const e = formatDateDDMMYYYY(endDateLogs);
+                    title += ` ពីថ្ងៃ ${s} ដល់ថ្ងៃ ${e}`;
                 }
                 break;
             case 'page-locations':
@@ -4461,6 +4736,72 @@ window.printReport = () => {
 
         prepareAndPrint(`printing-${pageId}`);
     }
+};
+
+// NEW: Print grouped-by-book reading log summary
+window.printReadingLogGrouped = () => {
+    // Only applicable on Reading Log page
+    const activePage = document.querySelector('.page:not(.hidden)');
+    if (!activePage || activePage.id !== 'page-reading-log') return;
+
+    const titleSpan = document.getElementById('print-report-title');
+    const startDate = document.getElementById('reading-log-filter-start-date')?.value;
+    const endDate = document.getElementById('reading-log-filter-end-date')?.value;
+    let title = 'សរុបតាមសៀវភៅ';
+    if (startDate && endDate) {
+        const s = formatDateDDMMYYYY(startDate);
+        const e = formatDateDDMMYYYY(endDate);
+        title += ` ពីថ្ងៃ ${s} ដល់ថ្ងៃ ${e}`;
+    }
+    if (titleSpan) titleSpan.textContent = title;
+
+    // Inject Khmer footer into grouped area, not the detailed table area
+    try {
+        // Remove any previous dynamic footers to avoid duplicates
+        document.querySelectorAll('.print-footer').forEach(el => el.remove());
+        const area = document.getElementById('reading-log-grouped-area');
+        if (area) {
+            area.appendChild(createKhmerFooter());
+        }
+    } catch (e) { console.warn('Footer injection failed (grouped):', e); }
+
+    // Insert the required upper title above the existing title (print-only)
+    try {
+        if (titleSpan && titleSpan.parentElement) {
+            // Remove any existing dynamic upper title to avoid duplicates
+            const oldUpper = document.getElementById('print-upper-title');
+            if (oldUpper) oldUpper.remove();
+
+            const upper = document.createElement('div');
+            upper.id = 'print-upper-title';
+            upper.className = 'print-only print-upper-title';
+            upper.textContent = 'បញ្ជីឈ្មោះសិស្សចូលអាន';
+            // Place above the existing report title span
+            titleSpan.parentElement.insertBefore(upper, titleSpan);
+        }
+    } catch (e) { /* no-op */ }
+
+    // Add a temporary class to hide the detailed table during grouped printing
+    const tempClass = 'printing-reading-log-grouped';
+    document.body.classList.add(tempClass);
+    const cleanup = () => {
+        document.body.classList.remove(tempClass);
+        // Remove the dynamically added upper title
+        try {
+            const oldUpper = document.getElementById('print-upper-title');
+            if (oldUpper) oldUpper.remove();
+        } catch (_) { /* noop */ }
+    };
+    const prevAfter = window.onafterprint;
+    window.onafterprint = () => {
+        cleanup();
+        if (typeof prevAfter === 'function') prevAfter();
+        // reset to avoid stacking
+        window.onafterprint = prevAfter || null;
+    };
+
+    // Reuse the same printing class as reading log page
+    prepareAndPrint('printing-page-reading-log');
 };
 
 // MODIFIED FUNCTION: Adds a longer delay to ensure all elements are rendered before printing.
