@@ -44,6 +44,31 @@ select:focus {
     outline: none;
 }
 
+/* Scoped: Always show a subtle blue shadow for textboxes in Settings page */
+#page-settings input[type="text"],
+#page-settings input[type="email"],
+#page-settings input[type="password"],
+#page-settings input[type="url"],
+#page-settings input[type="number"],
+#page-settings input[type="date"],
+#page-settings select,
+#page-settings textarea {
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.25) !important; /* blue-500 at 25% */
+    border-color: #3b82f6 !important; /* blue-500 */
+}
+
+/* Stronger on focus within Settings */
+#page-settings input[type="text"]:focus,
+#page-settings input[type="email"]:focus,
+#page-settings input[type="password"]:focus,
+#page-settings input[type="url"]:focus,
+#page-settings input[type="number"]:focus,
+#page-settings input[type="date"]:focus,
+#page-settings select:focus,
+#page-settings textarea:focus {
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.45) !important; /* stronger blue */
+}
+
 /* --- Student Card Styles --- */
 #page-student-cards .controls {
   margin-bottom: 20px;

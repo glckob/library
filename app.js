@@ -17,6 +17,75 @@ const convertKhmerToEnglishNumbers = (text) => {
     return text.replace(/[០-៩]/g, (match) => khmerToEnglish[match] || match);
 };
 
+// Initialize sort listeners early (with polling) so nested backup/restore exposure runs on load
+(() => {
+    if (document._backupInitPollerStarted) return;
+    document._backupInitPollerStarted = true;
+    const tryInit = () => {
+        try {
+            if (typeof setupLoanSortListeners === 'function') {
+                setupLoanSortListeners();
+            }
+        } catch (_) { /* noop */ }
+    };
+    const startPoll = () => {
+        let tries = 0;
+        const max = 120; // ~6s
+        const intv = setInterval(() => {
+            // If backup already exposed, stop
+            if (typeof window.backupAllData === 'function') {
+                clearInterval(intv);
+                return;
+            }
+            // Attempt initialization and check again
+            tryInit();
+            if (typeof window.backupAllData === 'function' || ++tries >= max) {
+                clearInterval(intv);
+            }
+        }, 50);
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { tryInit(); startPoll(); });
+    } else {
+        tryInit();
+        startPoll();
+    }
+})();
+
+// Shared: ensure backup function exists, initialize if needed, and invoke once with dedupe
+function ensureBackupAndInvoke() {
+    const tryInvoke = () => {
+        if (typeof window.backupAllData === 'function') { window.backupAllData(); return true; }
+        if (typeof backupAllData === 'function') { backupAllData(); return true; }
+        return false;
+    };
+
+    if (tryInvoke()) return;
+
+    // Attempt to initialize exposure lazily
+    try { if (typeof setupLoanSortListeners === 'function') { setupLoanSortListeners(); } } catch (_) { /* noop */ }
+    try {
+        if (typeof window.bindBackupRestoreControls === 'function') { window.bindBackupRestoreControls(); }
+        else if (typeof bindBackupRestoreControls === 'function') { bindBackupRestoreControls(); }
+    } catch (_) { /* noop */ }
+
+    if (tryInvoke()) return;
+
+    // Poll up to ~2s for availability
+    let tries = 0; const max = 40; const intv = setInterval(() => {
+        tries++;
+        if (tryInvoke() || tries >= max) { clearInterval(intv); }
+    }, 50);
+}
+
+function requestBackupOnce() {
+    if (document._backupCallLock) return;
+    document._backupCallLock = true;
+    // Slightly over 1s to cover any double-firing sequences
+    setTimeout(() => { document._backupCallLock = false; }, 1200);
+    ensureBackupAndInvoke();
+}
+
 // Helper: format ISO date (YYYY-MM-DD) to DD/MM/YYYY for print titles
 const formatDateDDMMYYYY = (iso) => {
     if (!iso || typeof iso !== 'string') return iso || '';
@@ -64,6 +133,313 @@ const setupLoanSortListeners = () => {
             }
             renderLoans();
         });
+
+// --- BACKUP & RESTORE ---
+async function backupAllData() {
+    console.log('[Backup] backupAllData called');
+    // Ensure loading overlay exists
+    try {
+        let overlayEl = document.getElementById('loading-overlay');
+        if (!overlayEl) {
+            console.warn('[Backup] loading-overlay not found. Creating fallback element.');
+            overlayEl = document.createElement('div');
+            overlayEl.id = 'loading-overlay';
+            overlayEl.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center z-40 hidden';
+            overlayEl.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-5xl"></i><p class="text-white text-xl mt-4">កំពុងដំណើរការ...</p>';
+            document.body.appendChild(overlayEl);
+        }
+    } catch (e) { console.error('[Backup] Failed ensuring overlay:', e); }
+    // Notify user and show overlay immediately
+    try { if (typeof window.showToast === 'function') window.showToast('កំពុងបម្រុងទុកទិន្នន័យទាំងអស់...', 'bg-blue-600'); } catch (_) {}
+    try {
+        const overlayEl = document.getElementById('loading-overlay') || (typeof loadingOverlay !== 'undefined' ? loadingOverlay : null);
+        if (overlayEl) overlayEl.classList.remove('hidden');
+    } catch (_) {}
+
+// Ensure loan-sort listeners (and nested backup/restore exposure) initialize on DOM ready
+// This guarantees window.backupAllData is assigned soon after load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        try { typeof setupLoanSortListeners === 'function' && setupLoanSortListeners(); } catch (_) { /* noop */ }
+    });
+} else {
+    try { typeof setupLoanSortListeners === 'function' && setupLoanSortListeners(); } catch (_) { /* noop */ }
+}
+
+    if (!currentUserId) {
+        try {
+            const overlayEl = document.getElementById('loading-overlay') || (typeof loadingOverlay !== 'undefined' ? loadingOverlay : null);
+            if (overlayEl) overlayEl.classList.add('hidden');
+        } catch (_) {}
+        console.warn('[Backup] No currentUserId');
+        alert('មិនមានអ្នកប្រើប្រាស់! សូមចូលគណនីមុន។');
+        return;
+    }
+
+    try {
+        const fetchTable = async (table) => {
+            // Settings are small; one-shot fetch is fine
+            if (table === 'settings') {
+                const { data, error } = await supabase
+                    .from('settings')
+                    .select('*')
+                    .eq('user_id', currentUserId);
+                if (error) throw error;
+                return data || [];
+            }
+
+            // Paginate for large tables to avoid 1000-row cap
+            const pageSize = 1000;
+            const all = [];
+            let from = 0;
+            while (true) {
+                const to = from + pageSize - 1;
+                const { data, error } = await supabase
+                    .from(table)
+                    .select('*')
+                    .eq('user_id', currentUserId)
+                    .order('id', { ascending: true })
+                    .range(from, to);
+                if (error) throw error;
+                const batch = data || [];
+                all.push(...batch);
+                if (batch.length < pageSize) break; // last page
+                from += pageSize;
+            }
+            return all;
+        };
+
+        console.log('[Backup] Fetching tables for user', currentUserId);
+        const [booksArr, loansArr, classLoansArr, readingLogsArr, locationsArr, studentsArr, settingsArr] = await Promise.all([
+            fetchTable('books'),
+            fetchTable('loans'),
+            fetchTable('class_loans'),
+            fetchTable('reading_logs'),
+            fetchTable('locations'),
+            fetchTable('students'),
+            fetchTable('settings')
+        ]);
+
+        if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+        const wb = XLSX.utils.book_new();
+        const addSheet = (name, arr) => {
+            const ws = XLSX.utils.json_to_sheet(arr);
+            XLSX.utils.book_append_sheet(wb, ws, name);
+        };
+        addSheet('Books', booksArr);
+        addSheet('Loans', loansArr);
+        addSheet('ClassLoans', classLoansArr);
+        addSheet('ReadingLogs', readingLogsArr);
+        addSheet('Locations', locationsArr);
+        addSheet('Students', studentsArr);
+        addSheet('Settings', settingsArr);
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        // ddmmyyyyhhmmss
+        const stamp = `${pad(now.getDate())}${pad(now.getMonth()+1)}${now.getFullYear()}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        const fname = `LibraryBackup_${stamp}.LBBCK`;
+        console.log('[Backup] Writing workbook file', fname);
+        XLSX.writeFile(wb, fname, { bookType: 'xlsx' });
+        try { if (typeof window.showToast === 'function') window.showToast('បានបម្រុងទុកទិន្នន័យទាំងអស់!', 'bg-green-600'); } catch (_) {}
+    } catch (e) {
+        console.error('Backup failed:', e);
+        alert('ការបម្រុងទុកបានបរាជ័យ: ' + (e?.message || 'Unknown'));
+    } finally {
+        try {
+            const overlayEl = document.getElementById('loading-overlay') || (typeof loadingOverlay !== 'undefined' ? loadingOverlay : null);
+            if (overlayEl) overlayEl.classList.add('hidden');
+        } catch (_) {}
+    }
+}
+// Expose backup function globally for inline/console/manual triggers
+try { window.backupAllData = backupAllData; } catch (_) {}
+
+async function restoreAllDataFromWorkbook(wb) {
+    if (!currentUserId) { alert('មិនមានអ្នកប្រើប្រាស់! សូមចូលគណនីមុន។'); return; }
+    try { if (typeof window.showToast === 'function') window.showToast('កំពុងស្ដារទិន្នន័យពី .LBBCK...', 'bg-blue-600'); } catch (_) {}
+    try { if (typeof loadingOverlay !== 'undefined') loadingOverlay.classList.remove('hidden'); } catch (_) {}
+
+    try {
+        const toJson = (sheetName) => {
+            const ws = wb.Sheets[sheetName];
+            return ws ? XLSX.utils.sheet_to_json(ws) : [];
+        };
+        const Books = toJson('Books');
+        const Loans = toJson('Loans');
+        const ClassLoans = toJson('ClassLoans');
+        const ReadingLogs = toJson('ReadingLogs');
+        const Locations = toJson('Locations');
+        const Students = toJson('Students');
+        const Settings = toJson('Settings');
+
+        // Ensure user_id on all records
+        const setUid = (arr) => arr.map(r => ({ ...r, user_id: currentUserId }));
+        const bArr = setUid(Books);
+        const lArr = setUid(Loans);
+        const clArr = setUid(ClassLoans);
+        const rlArr = setUid(ReadingLogs);
+        const locArr = setUid(Locations);
+        const sArr = setUid(Students);
+        const stArr = setUid(Settings);
+
+        // Non-destructive restore: chunked upserts to preserve existing/newer data
+        const upsertChunked = async (table, rows, onConflict) => {
+            if (!rows || rows.length === 0) return;
+            const chunkSize = 500;
+            for (let i = 0; i < rows.length; i += chunkSize) {
+                const chunk = rows.slice(i, i + chunkSize);
+                let error;
+                if (onConflict) {
+                    ({ error } = await supabase
+                        .from(table)
+                        .upsert(chunk, { onConflict }));
+                } else {
+                    // Rely on table primary key (usually id)
+                    ({ error } = await supabase
+                        .from(table)
+                        .upsert(chunk));
+                }
+                if (error) throw error;
+                // Yield to the UI thread to avoid long blocking loops
+                await new Promise((r) => setTimeout(r, 0));
+            }
+        };
+
+        // Upsert in dependency-friendly order
+        await upsertChunked('locations', locArr);
+        await upsertChunked('books', bArr);
+        await upsertChunked('students', sArr);
+        await upsertChunked('class_loans', clArr);
+        await upsertChunked('loans', lArr);
+        await upsertChunked('reading_logs', rlArr);
+        await upsertChunked('settings', stArr, 'key,user_id');
+
+        // Reload local state and UI
+        await Promise.all([
+            loadBooks(currentUserId),
+            loadLoans(currentUserId),
+            loadClassLoans(currentUserId),
+            loadReadingLogs(currentUserId),
+            loadLocations(currentUserId),
+            loadStudents(currentUserId),
+            loadSettings(currentUserId)
+        ]);
+        renderAll();
+        try { if (typeof window.showToast === 'function') window.showToast('ស្ដារទិន្នន័យដោយជោគជ័យ!', 'bg-green-600'); } catch (_) {}
+    } catch (e) {
+        console.error('Restore failed:', e);
+        alert('ការស្ដារឡើងវិញបានបរាជ័យ: ' + (e?.message || 'Unknown'));
+    } finally {
+        try { if (typeof loadingOverlay !== 'undefined') loadingOverlay.classList.add('hidden'); } catch (_) {}
+    }
+}
+
+function bindBackupRestoreControls() {
+    const fileInput = document.getElementById('file-restore-lbbck');
+
+    // One-time delegated click listener to avoid timing issues and duplicates
+    if (!document._backupRestoreDelegated) {
+        document._backupRestoreDelegated = true;
+        console.log('[Backup] Binding backup/restore controls');
+        document.addEventListener('click', (evt) => {
+            const t = evt.target;
+            if (!t) return;
+            const backupBtn = t.id === 'btn-backup-all' ? t : (t.closest && t.closest('#btn-backup-all'));
+            if (backupBtn) {
+                evt.preventDefault();
+                console.log('[Backup] btn-backup-all click (delegated)');
+                try { requestBackupOnce(); } catch (err) { console.error('[Backup] Delegated click failed:', err); }
+                return;
+            }
+            const restoreBtn = t.id === 'btn-restore-all' ? t : (t.closest && t.closest('#btn-restore-all'));
+            if (restoreBtn) {
+                evt.preventDefault();
+                console.log('[Backup] btn-restore-all click (delegated)');
+                const fi = document.getElementById('file-restore-lbbck');
+                if (fi) fi.click();
+            }
+        }, true);
+    }
+
+    // Guarded change handler for the restore file input (bind when present)
+    if (fileInput && fileInput.getAttribute('data-bound') !== 'true') {
+        fileInput.setAttribute('data-bound', 'true');
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+                    const data = new Uint8Array(e.target?.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    await restoreAllDataFromWorkbook(wb);
+                } catch (err) {
+                    console.error('Restore read failed:', err);
+                    alert('មិនអាចអានឯកសារ .LBBCK បានទេ: ' + (err?.message || 'Unknown'));
+                } finally {
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // Observe DOM for the file input appearing later, bind once
+    if (!document._backupRestoreObserver) {
+        try {
+            document._backupRestoreObserver = new MutationObserver(() => {
+                const fi = document.getElementById('file-restore-lbbck');
+                if (fi && fi.getAttribute('data-bound') !== 'true') {
+                    fi.setAttribute('data-bound', 'true');
+                    fi.addEventListener('change', async () => {
+                        const file = fi.files && fi.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                            try {
+                                if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+                                const data = new Uint8Array(e.target?.result);
+                                const wb = XLSX.read(data, { type: 'array' });
+                                await restoreAllDataFromWorkbook(wb);
+                            } catch (err) {
+                                console.error('Restore read failed:', err);
+                                alert('មិនអាចអានឯកសារ .LBBCK បានទេ: ' + (err?.message || 'Unknown'));
+                            } finally {
+                                fi.value = '';
+                            }
+                        };
+                        reader.readAsArrayBuffer(file);
+                    });
+                }
+            });
+            document._backupRestoreObserver.observe(document.documentElement, { childList: true, subtree: true });
+        } catch (_) { /* noop */ }
+    }
+}
+// Expose binder globally so post-login rebind can call it
+try { window.bindBackupRestoreControls = bindBackupRestoreControls; } catch (_) {}
+
+// Bind Backup & Restore controls on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindBackupRestoreControls);
+} else {
+    bindBackupRestoreControls();
+}
+
+// Observe DOM for late-loaded Settings section and bind once buttons appear
+(function setupBackupRestoreObserver() {
+    try {
+        const observer = new MutationObserver(() => {
+            const btn = document.getElementById('btn-backup-all');
+            if (btn && btn.getAttribute('data-bound') !== 'true') {
+                bindBackupRestoreControls();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    } catch (_) { /* no-op */ }
+})();
 
 // Attempt to focus the Books search box when the Books page is visible
 document.addEventListener('DOMContentLoaded', () => {
@@ -142,7 +518,6 @@ document.getElementById('grouped-return-form-ind').addEventListener('submit', as
     const loanDate = document.getElementById('grouped-return-loan-date-ind').textContent;
     const checkboxes = document.querySelectorAll('#grouped-return-books-list-ind input[type="checkbox"]:checked');
     if (checkboxes.length === 0) { alert('សូមជ្រើសរើសសៀវភៅយ៉ាងហោចណាស់មួយក្បាលដើម្បីសង។'); return; }
-
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.classList.remove('hidden');
     try {
@@ -466,6 +841,44 @@ function handleAuthState(session) {
         authContainer.classList.add('hidden');
         appContainer.classList.remove('hidden');
         setupRealtimeListeners(currentUserId);
+        try {
+            // Attempt an immediate bind if available; otherwise, rely on the polling safety net below
+            if (typeof bindBackupRestoreControls === 'function') {
+                bindBackupRestoreControls();
+            } else if (typeof window.bindBackupRestoreControls === 'function') {
+                window.bindBackupRestoreControls();
+            }
+            // Safety net: poll briefly until buttons exist, then bind once
+            try {
+                let attempts = 0;
+                const maxAttempts = 20; // ~2s total
+                const poll = setInterval(() => {
+                    attempts++;
+                    const btn = document.getElementById('btn-backup-all');
+                    if (btn && btn.getAttribute('data-bound') === 'true') {
+                        clearInterval(poll);
+                        return;
+                    }
+                    if (btn) {
+                        // Bind directly as an extra guarantee
+                        if (btn.getAttribute('data-bound') !== 'true') {
+                            btn.setAttribute('data-bound', 'true');
+                            btn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                console.log('[Backup] btn-backup-all click (direct-poll)');
+                                try { requestBackupOnce(); } catch (err) { console.error('[Backup] Direct poll click failed:', err); }
+                            });
+                        }
+                        clearInterval(poll);
+                        return;
+                    }
+                    if (typeof bindBackupRestoreControls === 'function') {
+                        bindBackupRestoreControls();
+                    }
+                    if (attempts >= maxAttempts) clearInterval(poll);
+                }, 100);
+            } catch (_) { /* noop */ }
+        } catch (e) { console.warn('[Backup] Rebind failed:', e); }
         
         // Determine target page: URL param/hash > last visited > settings default > 'home'
         let target = 'home';
@@ -591,6 +1004,10 @@ const navigateTo = (pageId) => {
         // Ensure reading log sort header is bound
         try { setupReadingSortListeners(); } catch (_) { /* noop */ }
     }
+    // Ensure Backup & Restore buttons are bound when entering Settings
+    if (pageId === 'settings') {
+        try { bindBackupRestoreControls(); } catch (_) { /* noop */ }
+    }
     if (pageId === 'students') {
         // Focus search on Students page
         setTimeout(() => {
@@ -641,6 +1058,226 @@ window.addEventListener('afterprint', () => {
         if (input) { input.focus(); input.select(); }
     }
 });
+
+// --- BOOKS EXCEL IMPORT: wire button to hidden file input ---
+function bindBookImportControls() {
+    const btn = document.getElementById('upload-book-excel-btn');
+    const fileInput = document.getElementById('book-excel-file-input');
+    if (!btn || !fileInput) return false;
+    if (btn.getAttribute('data-bound') === 'true') return true;
+    btn.setAttribute('data-bound', 'true');
+    btn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        const lowerName = (file.name || '').toLowerCase();
+        const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || /sheet/.test(file.type);
+
+        try { if (typeof window.showToast === 'function') window.showToast('កំពុងត្រៀមនាំចូល Excel សម្រាប់សៀវភៅ...', 'bg-blue-600'); } catch (_) {}
+
+        const finish = () => { try { loadingOverlay.classList.add('hidden'); } catch (_) {} fileInput.value = ''; };
+        try { loadingOverlay.classList.remove('hidden'); } catch (_) {}
+
+        const handleParsedAndSyncBooks = async (parsed) => {
+            if (!parsed.length) {
+                const m = 'មិនអាចញែកទិន្នន័យពី CSV/Excel បានទេ ឬឯកសារវិកល។';
+                if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                return;
+            }
+            const normalized = normalizeBooks(parsed);
+            if (!normalized.length) {
+                const m = 'រកមិនឃើញជួរឈរដែលត្រូវការសម្រាប់សៀវភៅនៅក្នុង CSV/Excel ទេ।';
+                if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                return;
+            }
+            await syncBooksToSupabase(normalized);
+            await loadBooks(currentUserId);
+            renderAll();
+            if (typeof window.showToast === 'function') {
+                window.showToast(`នាំចូលសៀវភៅ ${normalized.length} ក្បាលដោយជោគជ័យពី CSV/Excel!`, 'bg-green-600');
+            } else {
+                alert(`នាំចូលសៀវភៅ ${normalized.length} ក្បាលដោយជោគជ័យពី CSV/Excel!`);
+            }
+        };
+
+        if (isExcel) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+                    const data = new Uint8Array(e.target?.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const csvText = XLSX.utils.sheet_to_csv(worksheet);
+                    const parsed = parseCSV(csvText);
+                    await handleParsedAndSyncBooks(parsed);
+                } catch (err) {
+                    console.error('Excel upload (books) failed:', err);
+                    const m = 'ការនាំចូល Excel បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally { finish(); }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const text = e.target?.result || '';
+                    const parsed = parseCSV(String(text));
+                    await handleParsedAndSyncBooks(parsed);
+                } catch (err) {
+                    console.error('CSV upload (books) failed:', err);
+                    const m = 'ការនាំចូល CSV បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally { finish(); }
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+    });
+    return true;
+}
+
+// --- LOCATIONS EXCEL/CSV IMPORT ---
+function normalizeLocations(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const sample = rows[0] || {};
+    const keys = Object.keys(sample);
+
+    const findKey = (aliases) => {
+        const lowered = keys.map(k => ({ k, lk: k.toLowerCase().trim() }));
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            const exact = lowered.find(x => x.lk === a);
+            if (exact) return exact.k;
+        }
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            const incl = lowered.find(x => x.lk.includes(a));
+            if (incl) return incl.k;
+        }
+        return null;
+    };
+
+    const keyName = findKey(['ឈ្មោះទីតាំង','ឈ្មោះ','name','location name','បន្ទប់','ធ្នើ']);
+    const keySource = findKey(['ប្រភពធ្នើ','ប្រភព','source','origin']);
+    const keyYear = findKey(['ឆ្នាំ','year','ឆ្នាំសិក្សា']);
+
+    const norm = rows.map(r => {
+        const name = keyName ? (r[keyName] ?? '').toString().trim() : '';
+        const source = keySource ? (r[keySource] ?? '').toString().trim() : '';
+        const year = keyYear ? (r[keyYear] ?? '').toString().trim() : '';
+        return { name, source, year };
+    }).filter(o => o.name);
+
+    return norm;
+}
+
+async function syncLocationsToSupabase(locationData) {
+    if (!currentUserId) return;
+    // Delete existing locations for this user
+    await supabase
+        .from('locations')
+        .delete()
+        .eq('user_id', currentUserId);
+
+    // Attach user_id
+    const withUserId = locationData.map(loc => ({ ...loc, user_id: currentUserId }));
+    const { error } = await supabase
+        .from('locations')
+        .insert(withUserId);
+    if (error) {
+        console.error('Error syncing locations:', error);
+        throw error;
+    }
+}
+
+const handleParsedAndSyncLocations = async (parsed) => {
+    if (!parsed.length) {
+        const m = 'មិនអាចញែកទិន្នន័យពី CSV/Excel បានទេ ឬឯកសារវិកល។';
+        if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+        return;
+    }
+    const normalized = normalizeLocations(parsed);
+    if (!normalized.length) {
+        const m = 'រកមិនឃើញជួរឈរដែលត្រូវការសម្រាប់ទីតាំងនៅក្នុង CSV/Excel ទេ។';
+        if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+        return;
+    }
+    await syncLocationsToSupabase(normalized);
+    await loadLocations(currentUserId);
+    renderAll();
+    if (typeof window.showToast === 'function') {
+        window.showToast(`នាំចូលទីតាំង ${normalized.length} ឯកសារដោយជោគជ័យពី CSV/Excel!`, 'bg-green-600');
+    } else {
+        alert(`នាំចូលទីតាំង ${normalized.length} ឯកសារដោយជោគជ័យពី CSV/Excel!`);
+    }
+};
+
+function bindLocationImportControls() {
+    const btn = document.getElementById('upload-location-excel-btn');
+    const fileInput = document.getElementById('location-excel-file-input');
+    if (!btn || !fileInput) return false;
+    if (btn.getAttribute('data-bound') === 'true') return true;
+    btn.setAttribute('data-bound', 'true');
+    btn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        const finish = () => { fileInput.value = ''; };
+
+        if (/\.(xlsx|xls)$/i.test(file.name)) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+                    const data = new Uint8Array(e.target?.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const csvText = XLSX.utils.sheet_to_csv(worksheet);
+                    const parsed = parseCSV(csvText);
+                    await handleParsedAndSyncLocations(parsed);
+                } catch (err) {
+                    console.error('Excel upload (locations) failed:', err);
+                    const m = 'ការនាំចូល Excel បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally { finish(); }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const text = e.target?.result || '';
+                    const parsed = parseCSV(String(text));
+                    await handleParsedAndSyncLocations(parsed);
+                } catch (err) {
+                    console.error('CSV upload (locations) failed:', err);
+                    const m = 'ការនាំចូល CSV បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally { finish(); }
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+    });
+    return true;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindBookImportControls);
+} else {
+    // DOM already ready
+    bindBookImportControls();
+}
+
+// Bind Locations import controls on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindLocationImportControls);
+} else {
+    bindLocationImportControls();
+}
 
 // --- RENDERING FUNCTIONS ---
 const renderAll = () => {
@@ -1920,13 +2557,25 @@ async function loadLocations(userId) {
 }
 
 async function loadStudents(userId) {
-    const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('user_id', userId);
-    if (!error) {
+    // Fetch all students in pages to avoid the default 1000-row limit
+    const pageSize = 1000;
+    let offset = 0;
+    let allRows = [];
+    while (true) {
+        const { data, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('user_id', userId)
+            .range(offset, offset + pageSize - 1);
+        if (error) { console.error('Error loading students:', error); break; }
+        const batch = data || [];
+        allRows = allRows.concat(batch);
+        if (batch.length < pageSize) break; // last page
+        offset += pageSize;
+    }
+    if (allRows.length >= 0) {
         // Normalize to Khmer keys expected by the UI
-        const rows = data || [];
+        const rows = allRows;
         students = rows.map((r) => {
             // Handle both old format (name field) and new format (separate fields)
             let lastName = r['នាមត្រកូល'] || '';
@@ -2159,145 +2808,89 @@ const saveDefaultPage = async () => {
     }
 };
 
-// --- GOOGLE SHEET & STUDENT DATA ---
-document.getElementById('save-url-btn').addEventListener('click', async () => {
-    if (!currentUserId) return;
-    const url = document.getElementById('google-sheet-url').value.trim();
-    
-    if (!url) { alert('សូមបញ្ចូល Link ជាមុនសិន'); return; }
-    
-    // Validate Google Sheets URL format
-    if (!url.includes('docs.google.com/spreadsheets/')) {
-        alert('Link មិនត្រឹមត្រូវ។ សូមប្រាកដថាជា Google Sheets Link។');
-        return;
-    }
-    
-    try {
-        const { error } = await supabase
-            .from('settings')
-            .upsert({
-                user_id: currentUserId,
-                key: 'google_sheet_url',
-                value: url
-            }, {
-                onConflict: 'user_id,key'
-            });
-        
-        if (!error) {
-            alert('រក្សាទុក Link បានជោគជ័យ!');
-            // Update local settings
-            settingsData.google_sheet_url = url;
-        } else {
-            console.error("Error saving URL: ", error);
-            alert('ការរក្សាទុក Link បានបរាជ័យ។ Error: ' + error.message);
-        }
-    } catch (e) { 
-        console.error("Error saving URL: ", e); 
-        alert('ការរក្សាទុក Link បានបរាជ័យ។ Error: ' + e.message); 
-    }
-});
+// Google Sheets import removed: URL save/fetch handlers deleted; Excel/CSV upload is the only import path now.
 
-document.getElementById('fetch-data-btn').addEventListener('click', async () => {
-    const url = document.getElementById('google-sheet-url').value.trim();
-    if (!url) { alert('សូមបញ្ចូល Link Google Sheet ជាមុនសិន។'); return; }
-    
-    // Convert regular Google Sheets URL to CSV export URL if needed
-    let csvUrl = url;
-    if (url.includes('docs.google.com/spreadsheets/') && !url.includes('/pub?output=csv')) {
-        // Extract sheet ID from URL
-        const sheetIdMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-        if (sheetIdMatch) {
-            csvUrl = `https://docs.google.com/spreadsheets/d/${sheetIdMatch[1]}/pub?output=csv`;
-        } else {
-            alert('Link មិនត្រឹមត្រូវ។ សូមប្រាកដថាជា Google Sheets Link។');
-            return;
-        }
-    }
-    
-    if (!csvUrl.includes('/pub?output=csv')) { 
-        alert('Link មិនត្រឹមត្រូវ។ សូមប្រាកដថា Link បាន Publish ជា CSV ឬប្រើ Link ធម្មតា។'); 
-        return; 
-    }
+// Local CSV Upload Fallback (no CORS)
+(() => {
+    const uploadBtn = document.getElementById('upload-csv-btn');
+    const fileInput = document.getElementById('csv-file-input');
+    if (!uploadBtn || !fileInput) return;
 
-    loadingOverlay.classList.remove('hidden');
-    try {
-        // Try multiple proxy services for better reliability
-        const proxyUrls = [
-            'https://api.allorigins.win/raw?url=',
-            'https://cors-anywhere.herokuapp.com/',
-            'https://api.codetabs.com/v1/proxy?quest='
-        ];
-        
-        let response = null;
-        let lastError = null;
-        
-        for (const proxyUrl of proxyUrls) {
-            try {
-                console.log(`Trying proxy: ${proxyUrl}`);
-                response = await fetch(proxyUrl + encodeURIComponent(csvUrl), {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-                if (response.ok) break;
-            } catch (error) {
-                console.log(`Proxy ${proxyUrl} failed:`, error);
-                lastError = error;
-                continue;
+    uploadBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        const lowerName = (file.name || '').toLowerCase();
+        const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || /sheet/.test(file.type);
+
+        const handleParsedAndSync = async (parsed) => {
+            if (!parsed.length) {
+                const m = 'មិនអាចញែកទិន្នន័យពី CSV/Excel បានទេ ឬឯកសារវិកល។';
+                if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                return;
             }
-        }
-        
-        if (!response || !response.ok) { 
-            throw new Error(`All proxy services failed. Last error: ${lastError?.message || 'Network error'}`); 
-        }
-        
-        const csvText = await response.text();
-        console.log('CSV data received:', csvText.substring(0, 200) + '...');
-        
-        const parsedData = parseCSV(csvText);
-        console.log('Parsed data:', parsedData.slice(0, 3));
-        
-        if (parsedData.length === 0) { 
-            try {
-                if (typeof window.showToast === 'function') {
-                    window.showToast('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។', 'bg-red-600');
-                } else {
-                    alert('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។');
-                }
-            } catch (_) { alert('មិនអាចញែកទិន្នន័យពី CSV បានទេ ឬក៏ Sheet មិនមានទិន្នន័យ។'); }
-            return; 
-        }
-        
-        await syncStudentsToSupabase(parsedData);
-        // Use overlay toast instead of browser alert, then refresh page
-        try {
+            const normalized = normalizeStudents(parsed);
+            if (!normalized.length) {
+                const m = 'រកមិនឃើញជួរឈរដែលត្រូវការសម្រាប់សិស្សនៅក្នុង CSV/Excel ទេ។';
+                if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                return;
+            }
+            await syncStudentsToSupabase(normalized);
             if (typeof window.showToast === 'function') {
-                window.showToast(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`, 'bg-green-600');
-                // Give users a moment to read the toast, then refresh
-                setTimeout(() => { window.location.reload(); }, 1500);
+                window.showToast(`នាំចូលសិស្ស ${normalized.length} នាក់ដោយជោគជ័យពី CSV/Excel!`, 'bg-green-600');
+                setTimeout(() => window.location.reload(), 1200);
             } else {
-                alert(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`);
+                alert(`នាំចូលសិស្ស ${normalized.length} នាក់ដោយជោគជ័យពី CSV/Excel!`);
                 window.location.reload();
             }
-        } catch (_) {
-            alert(`បានទាញយក និងរក្សាទុកទិន្នន័យសិស្ស ${parsedData.length} នាក់ដោយជោគជ័យ!`);
-            window.location.reload();
+        };
+
+        loadingOverlay.classList.remove('hidden');
+        if (isExcel) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+                    const data = new Uint8Array(e.target?.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    // Convert to CSV then reuse the same CSV parser
+                    const csvText = XLSX.utils.sheet_to_csv(worksheet);
+                    const parsed = parseCSV(csvText);
+                    await handleParsedAndSync(parsed);
+                } catch (err) {
+                    console.error('Excel upload failed:', err);
+                    const m = 'ការនាំចូល Excel បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally {
+                    loadingOverlay.classList.add('hidden');
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const text = e.target?.result || '';
+                    const parsed = parseCSV(String(text));
+                    await handleParsedAndSync(parsed);
+                } catch (err) {
+                    console.error('CSV upload failed:', err);
+                    const m = 'ការនាំចូល CSV បានបរាជ័យ: ' + (err?.message || 'Unknown error');
+                    if (typeof window.showToast === 'function') window.showToast(m, 'bg-red-600'); else alert(m);
+                } finally {
+                    loadingOverlay.classList.add('hidden');
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsText(file, 'utf-8');
         }
-        
-    } catch (error) { 
-        console.error('Failed to fetch or process student data:', error); 
-        const msg = 'ការទាញយកទិន្នន័យបានបរាជ័យ។\nបញ្ហាអាចមកពី:\n- Link មិនត្រឹមត្រូវ\n- Sheet មិនបាន Publish to web\n- ការតភ្ជាប់ Internet\n- CORS policy\n\nError: ' + (error?.message || 'Unknown');
-        try {
-            if (typeof window.showToast === 'function') {
-                window.showToast(msg, 'bg-red-600');
-            } else {
-                alert(msg);
-            }
-        } catch (_) { alert(msg); }
-    } finally { 
-        loadingOverlay.classList.add('hidden'); 
-    }
-});
+    });
+})();
 
 function parseCSV(text) {
     const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -2358,6 +2951,78 @@ function parseCSV(text) {
     return data;
 }
 
+// Normalize arbitrary CSV columns into expected student schema with Khmer keys
+function normalizeStudents(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const sample = rows[0] || {};
+    const keys = Object.keys(sample);
+
+    // Helper: find a key by list of aliases (case-insensitive, trimmed, includes support)
+    const findKey = (aliases) => {
+        const lowered = keys.map(k => ({ k, lk: k.toLowerCase().trim() }));
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            // exact match first
+            const exact = lowered.find(x => x.lk === a);
+            if (exact) return exact.k;
+        }
+        // includes match fallback
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            const incl = lowered.find(x => x.lk.includes(a));
+            if (incl) return incl.k;
+        }
+        return null;
+    };
+
+    const keySerial = findKey(['ល.រ', 'លរ', 'no', 'serial', 'serial number', 'stt']);
+    const keyId = findKey(['អត្តលេខ', 'student id', 'student_id', 'code', 'id', 'student code']);
+    const keyLast = findKey(['នាមត្រកូល', 'last name', 'lastname', 'surname']);
+    const keyFirst = findKey(['នាមខ្លួន', 'first name', 'firstname', 'given name', 'name']);
+    const keyGender = findKey(['ភេទ', 'gender', 'sex']);
+    const keyClass = findKey(['ថ្នាក់', 'class', 'grade']);
+    const keyDob = findKey(['ថ្ងៃខែឆ្នាំកំណើត', 'dob', 'date of birth', 'birthdate', 'birth date']);
+    const keyPhoto = findKey(['រូបថត url', 'រូបថត', 'photo url', 'photo', 'image', 'image url']);
+
+    // Require minimally ID and names to proceed
+    const minimalOK = !!(keyId && (keyLast || keyFirst));
+    if (!minimalOK) return [];
+
+    const toNumber = (v) => {
+        if (v == null) return null;
+        const s = String(v).trim();
+        if (!s) return null;
+        const n = Number(s);
+        return Number.isNaN(n) ? s : n;
+    };
+
+    const norm = rows.map(r => {
+        const obj = {
+            'ល.រ': keySerial ? toNumber(r[keySerial]) : null,
+            'អត្តលេខ': keyId ? (r[keyId] ?? '').toString().trim() : null,
+            'នាមត្រកូល': keyLast ? (r[keyLast] ?? '').toString().trim() : '',
+            'នាមខ្លួន': keyFirst ? (r[keyFirst] ?? '').toString().trim() : '',
+            'ភេទ': keyGender ? (r[keyGender] ?? '').toString().trim() : '',
+            'ថ្នាក់': keyClass ? (r[keyClass] ?? '').toString().trim() : '',
+            'ថ្ងៃខែឆ្នាំកំណើត': keyDob ? (r[keyDob] ?? '').toString().trim() : '',
+            'រូបថត URL': keyPhoto ? (r[keyPhoto] ?? '').toString().trim() : ''
+        };
+        // If last/first combined only one exists: attempt simple split by space
+        if (!keyLast && keyFirst) {
+            const parts = (obj['នាមខ្លួន'] || '').split(/\s+/);
+            obj['នាមត្រកូល'] = parts.shift() || '';
+            obj['នាមខ្លួន'] = parts.join(' ');
+        } else if (keyLast && !keyFirst) {
+            const parts = (obj['នាមត្រកូល'] || '').split(/\s+/);
+            obj['នាមត្រកូល'] = parts.shift() || '';
+            obj['នាមខ្លួន'] = parts.join(' ');
+        }
+        return obj;
+    }).filter(o => Object.values(o).some(v => (v ?? '').toString().trim() !== ''));
+
+    return norm;
+}
+
 async function syncStudentsToSupabase(studentData) {
     if (!currentUserId) return;
     
@@ -2380,6 +3045,95 @@ async function syncStudentsToSupabase(studentData) {
     
     if (error) {
         console.error('Error syncing students:', error);
+        throw error;
+    }
+}
+
+// Normalize arbitrary CSV/Excel columns into expected book schema
+function normalizeBooks(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const sample = rows[0] || {};
+    const keys = Object.keys(sample);
+
+    const findKey = (aliases) => {
+        const lowered = keys.map(k => ({ k, lk: k.toLowerCase().trim() }));
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            const exact = lowered.find(x => x.lk === a);
+            if (exact) return exact.k;
+        }
+        for (const alias of aliases) {
+            const a = alias.toLowerCase().trim();
+            const incl = lowered.find(x => x.lk.includes(a));
+            if (incl) return incl.k;
+        }
+        return null;
+    };
+
+    const keyTitle = findKey(['ចំណងជើង', 'title', 'book title', 'name']);
+    const keyAuthor = findKey(['អ្នកនិពន្ធ/ថ្នាក់', 'អ្នកនិពន្ធ', 'author', 'class', 'grade']);
+    const keyIsbn = findKey(['isbn', 'លេខសម្គាល់', 'លេខសម្គាល់សៀវភៅ']);
+    const keyQty = findKey(['ចំនួនសរុប', 'quantity', 'qty', 'total']);
+    const keyLocation = findKey(['ទីតាំង', 'location', 'shelf', 'shelve', 'shelving']);
+    const keySource = findKey(['ប្រភព', 'source']);
+
+    const toNumber = (v) => {
+        if (v == null) return 0;
+        let s = String(v).trim();
+        if (!s) return 0;
+        s = convertKhmerToEnglishNumbers(s);
+        const n = Number(s);
+        return Number.isNaN(n) ? 0 : n;
+    };
+
+    const resolveLocationId = (val) => {
+        if (!val) return null;
+        const s = String(val).trim();
+        // If numeric id provided
+        if (/^\d+$/.test(s)) {
+            const idNum = Number(s);
+            return locations.find(l => Number(l.id) === idNum)?.id || null;
+        }
+        // Match by name (case-insensitive)
+        const lower = s.toLowerCase();
+        const found = locations.find(l => (l.name || '').toLowerCase().trim() === lower);
+        return found ? found.id : null;
+    };
+
+    const norm = rows.map(r => {
+        const title = keyTitle ? (r[keyTitle] ?? '').toString().trim() : '';
+        const author = keyAuthor ? (r[keyAuthor] ?? '').toString().trim() : '';
+        const isbn = keyIsbn ? (r[keyIsbn] ?? '').toString().trim() : '';
+        const quantity = keyQty ? toNumber(r[keyQty]) : 0;
+        const locVal = keyLocation ? (r[keyLocation] ?? '').toString().trim() : '';
+        const source = keySource ? (r[keySource] ?? '').toString().trim() : '';
+        const location_id = resolveLocationId(locVal);
+        return { title, author, isbn, quantity, location_id, source };
+    }).filter(o => (o.title || o.author || o.isbn));
+
+    if (!norm.length) return [];
+    return norm;
+}
+
+async function syncBooksToSupabase(bookData) {
+    if (!currentUserId) return;
+    // Delete existing books for this user
+    await supabase
+        .from('books')
+        .delete()
+        .eq('user_id', currentUserId);
+
+    // Add user_id to each record
+    const booksWithUserId = bookData.map(b => ({
+        ...b,
+        user_id: currentUserId
+    }));
+
+    const { error } = await supabase
+        .from('books')
+        .insert(booksWithUserId);
+    if (error) {
+        console.error('Error syncing books:', error);
         throw error;
     }
 }
@@ -4194,9 +4948,18 @@ const exportData = () => {
 // --- SETTINGS & DATA DELETION ---
 window.openPasswordConfirmModal = (collectionName) => {
     document.getElementById('collection-to-delete').value = collectionName;
-    document.getElementById('password-confirm-modal').classList.remove('hidden');
-    document.getElementById('user-password').focus();
-    document.getElementById('password-error').textContent = '';
+    const modalEl = document.getElementById('password-confirm-modal');
+    const inputEl = document.getElementById('user-password');
+    const errorEl = document.getElementById('password-error');
+    modalEl.classList.remove('hidden');
+    errorEl.textContent = '';
+    // Defer focus to ensure element is visible and focusable after unhide
+    setTimeout(() => {
+        try {
+            inputEl.focus();
+            if (typeof inputEl.select === 'function') inputEl.select();
+        } catch (_) {}
+    }, 0);
 };
 
 window.closePasswordConfirmModal = () => {
@@ -4566,6 +5329,30 @@ changePasswordForm.addEventListener('submit', async (e) => {
 });
 
 
+// --- CREATE ACCOUNT RGB ANIMATION (Settings) ---
+(() => {
+    const btn = document.getElementById('btn-create-account-settings');
+    if (!btn) return;
+    // Ensure starting styles for readability
+    btn.style.backgroundColor = 'rgb(99, 102, 241)'; // indigo-ish
+    btn.style.color = '#fff';
+
+    const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const setRandomBg = () => {
+        const r = randomInt(32, 255);
+        const g = randomInt(32, 255);
+        const b = randomInt(32, 255);
+        btn.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+    };
+
+    // Change color periodically; transition is handled by Tailwind classes in HTML
+    setRandomBg();
+    const intervalId = setInterval(setRandomBg, 1500);
+
+    // Optional: pause on hover to reduce distraction
+    btn.addEventListener('mouseenter', () => clearInterval(intervalId));
+})();
+
 // --- FILTER BUTTON LISTENERS ---
 document.getElementById('loan-filter-btn').addEventListener('click', renderLoans);
 document.getElementById('loan-reset-btn').addEventListener('click', () => {
@@ -4645,16 +5432,11 @@ window.showToast = (message, bgClass = 'bg-green-600') => {
     if (!el) {
         el = document.createElement('div');
         el.id = 'app-toast';
-        el.className = `${bgClass} text-white px-5 py-3 rounded shadow-lg fixed z-50 transition-opacity duration-200`;
-        el.style.opacity = '0';
-        el.style.top = '50%';
-        el.style.left = '50%';
-        el.style.transform = 'translate(-50%, -50%)';
-        el.style.pointerEvents = 'none';
         document.body.appendChild(el);
     }
     // Update styles/message each time
     el.className = `${bgClass} text-white px-5 py-3 rounded shadow-lg fixed z-50 transition-opacity duration-200`;
+    el.style.opacity = '0';
     el.style.top = '50%';
     el.style.left = '50%';
     el.style.transform = 'translate(-50%, -50%)';
@@ -4664,9 +5446,7 @@ window.showToast = (message, bgClass = 'bg-green-600') => {
     requestAnimationFrame(() => { el.style.opacity = '1'; });
     // Clear existing timer and schedule hide
     if (window.__toastTimer) clearTimeout(window.__toastTimer);
-    window.__toastTimer = setTimeout(() => {
-        el.style.opacity = '0';
-    }, 3000);
+    window.__toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 3000);
 };
 
 window.printReport = () => {

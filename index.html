@@ -218,6 +218,9 @@
                     </div>
                     <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition-colors">ចូលប្រើ</button>
                     <p id="login-error" class="text-red-500 text-sm text-center mt-4"></p>
+                    <div class="mt-4">
+                        <a href="admin.html" class="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">បង្កើតគណនីថ្មី</a>
+                    </div>
                 </form>
             </div>
         </div>
@@ -363,6 +366,9 @@
                             <h2 class="text-3xl font-bold text-gray-800 no-print">បញ្ជីសៀវភៅ</h2>
                             <div class="flex items-center">
                                 <input type="text" id="search-books" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md mr-4 no-print" placeholder="ស្វែងរកសៀវភៅ..." autofocus>
+                                <!-- Import Books from Excel -->
+                                <input type="file" id="book-excel-file-input" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden">
+                                <button id="upload-book-excel-btn" class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 mr-2 no-print"><i class="fas fa-file-upload mr-2"></i>នាំចូល Excel</button>
                                 <button onclick="window.printReport()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 mr-2 no-print"><i class="fas fa-print mr-2"></i>បោះពុម្ព</button>
                                 <a href="bookcard.html" class="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 mr-2 no-print"><i class="fas fa-id-card mr-2"></i>កាតសំគាល់សៀវភៅ</a>
                                 <button onclick="window.openBookModal()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 no-print"><i class="fas fa-plus mr-2"></i>បន្ថែម</button>
@@ -706,6 +712,9 @@
                             <h2 class="text-3xl font-bold text-gray-800 no-print">គ្រប់គ្រងទីតាំងរក្សាទុកសៀវភៅ</h2>
                             <div class="flex items-center">
                                 <input type="text" id="search-locations" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md mr-4 no-print" placeholder="ស្វែងរកទីតាំង...">
+                                <!-- Import Locations from Excel -->
+                                <input type="file" id="location-excel-file-input" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden">
+                                <button id="upload-location-excel-btn" class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 mr-2 no-print"><i class="fas fa-file-upload mr-2"></i>នាំចូល Excel</button>
                                 <button onclick="window.printReport()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 mr-2 no-print"><i class="fas fa-print mr-2"></i>បោះពុម្ព</button>
                                 <button onclick="window.openLocationModal()" class="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 no-print"><i class="fas fa-plus mr-2"></i>បន្ថែម</button>
                             </div>
@@ -733,13 +742,20 @@
                     <div id="page-students" class="page hidden">
                         <h2 class="text-3xl font-bold text-gray-800 mb-4 no-print">ទិន្នន័យសិស្ស</h2>
                         <div class="bg-white p-4 rounded-lg shadow-md mb-6 no-print">
-                            <h3 class="text-xl font-bold mb-2">តំណភ្ជាប់ Google Sheet</h3>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <input type="url" id="google-sheet-url" class="flex-grow px-3 py-2 border border-gray-300 rounded-md" placeholder="ដាក់ Link Google Sheet CSV នៅទីនេះ...">
-                                <button id="save-url-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"><i class="fas fa-save mr-2"></i>រក្សាទុក Link</button>
-                                <button id="fetch-data-btn" class="bg-teal-500 text-white px-4 py-2 rounded-md hover:bg-teal-600"><i class="fas fa-download mr-2"></i>ទាញយកទិន្នន័យ</button>
+                            <h3 class="text-xl font-bold mb-2">នាំចូលទិន្នន័យសិស្ស</h3>
+                            <!-- Excel Upload Row -->
+                            <div class="mt-3 p-3 rounded-md border-2 border-dashed border-gray-300 bg-gray-50">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <i class="fas fa-file-csv text-gray-600"></i>
+                                    <span class="text-sm text-gray-700">នាំចូលដោយប្រើឯកសារ Excel:</span>
+                                    <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden">
+                                    <button id="upload-csv-btn" class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800"><i class="fas fa-file-upload mr-2"></i>ជ្រើសរើស Excel</button>
+                                    <a href="./ឈ្មោះសិស្សបណ្ណាល័យ.xlsx" download class="ml-auto inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                        <i class="fas fa-file-excel mr-2"></i>ទាញយកគំរូឯកសារ Excel
+                                    </a>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">គំរូចំណងជើងឯកសារ Excel របស់អ្នកត្រូវមានដូចជា៖ ល.រ, អត្តលេខ, នាមត្រកូល, នាមខ្លួន, ភេទ, ថ្នាក់, ថ្ងៃខែឆ្នាំកំណើត, រូបថត URL</p>
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">**សំគាល់:** សូមប្រាកដថា Link របស់អ្នកបាន Publish to the web ជាទម្រង់ CSV។ (File > Share > Publish to web > CSV)</p>
                         </div>
 
                         <div class="flex flex-wrap justify-between items-start mb-6 gap-4">
@@ -786,23 +802,23 @@
                                         <!-- School Name -->
                                         <div>
                                             <label for="school-name-input" class="block text-sm font-medium text-gray-700">ឈ្មោះសាលា</label>
-                                            <div id="school-name-container" class="mt-1 flex items-center gap-2">
+                                            <div id="school-name-container" class="mt-1 flex items-center gap-2 flex-nowrap">
                                                 <input type="text" id="school-name-input" class="flex-grow block w-full rounded-md border-gray-300 shadow-sm">
                                                 <p id="school-name-display" class="hidden flex-grow font-semibold text-lg"></p>
-                                                <button id="save-school-name-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">រក្សាទុក</button>
-                                                <button id="edit-school-name-btn" class="hidden bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">កែប្រែ</button>
-                                                <button id="delete-school-name-btn" class="hidden bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">លុប</button>
+                                                <button id="save-school-name-btn" class="shrink-0 whitespace-nowrap bg-blue-500 text-white px-3 py-2 text-sm rounded-md hover:bg-blue-600">រក្សាទុក</button>
+                                                <button id="edit-school-name-btn" class="hidden shrink-0 whitespace-nowrap bg-yellow-500 text-white px-3 py-2 text-sm rounded-md hover:bg-yellow-600">កែប្រែ</button>
+                                                <button id="delete-school-name-btn" class="hidden shrink-0 whitespace-nowrap bg-red-500 text-white px-3 py-2 text-sm rounded-md hover:bg-red-600">លុប</button>
                                             </div>
                                         </div>
                                         <!-- Academic Year -->
                                         <div>
                                             <label for="academic-year-input" class="block text-sm font-medium text-gray-700">ឆ្នាំសិក្សា</label>
-                                            <div id="academic-year-container" class="mt-1 flex items-center gap-2">
+                                            <div id="academic-year-container" class="mt-1 flex items-center gap-2 flex-nowrap">
                                                 <input type="text" id="academic-year-input" class="flex-grow block w-full rounded-md border-gray-300 shadow-sm" placeholder="YYYY-YYYY">
                                                 <p id="academic-year-display" class="hidden flex-grow font-semibold text-lg"></p>
-                                                <button id="save-academic-year-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">រក្សាទុក</button>
-                                                <button id="edit-academic-year-btn" class="hidden bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">កែប្រែ</button>
-                                                <button id="delete-academic-year-btn" class="hidden bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">លុប</button>
+                                                <button id="save-academic-year-btn" class="shrink-0 whitespace-nowrap bg-blue-500 text-white px-3 py-2 text-sm rounded-md hover:bg-blue-600">រក្សាទុក</button>
+                                                <button id="edit-academic-year-btn" class="hidden shrink-0 whitespace-nowrap bg-yellow-500 text-white px-3 py-2 text-sm rounded-md hover:bg-yellow-600">កែប្រែ</button>
+                                                <button id="delete-academic-year-btn" class="hidden shrink-0 whitespace-nowrap bg-red-500 text-white px-3 py-2 text-sm rounded-md hover:bg-red-600">លុប</button>
                                             </div>
                                         </div>
                                         <!-- Principal Seal -->
@@ -845,17 +861,32 @@
                                             <label for="confirm-new-password" class="block text-sm font-medium text-gray-700">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី</label>
                                             <input type="password" id="confirm-new-password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
                                         </div>
-                                        <p id="change-password-error" class="text-red-500 text-sm"></p>
-                                        <p id="change-password-success" class="text-green-500 text-sm"></p>
-                                        <button type="submit" class="w-full bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600">ផ្លាស់ប្តូរពាក្យសម្ងាត់</button>
+                                        <div class="pt-2">
+                                            <div class="flex justify-end gap-2">
+                                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">ផ្លាស់ប្តូរ</button>
+                                                <a id="btn-create-account-settings" href="admin.html" class="inline-flex items-center justify-center px-4 py-2 rounded-md text-white transition-colors duration-700 ease-in-out shadow">បង្កើតគណនីថ្មី</a>
+                                            </div>
+                                            <p id="change-password-error" class="text-red-600 text-sm mt-2"></p>
+                                            <p id="change-password-success" class="text-green-600 text-sm mt-2"></p>
+                                        </div>
                                     </form>
-                                    <!-- NEW: Create New Account Button -->
-                                    <div class="mt-4 pt-4 border-t">
-                                        <a href="admin.html" class="w-full inline-flex items-center justify-center bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600">
-                                            <i class="fas fa-user-plus mr-2"></i>
-                                            បង្កើតគណនេយ្យថ្មី
-                                        </a>
+                                </div>
+                                <!-- Backup & Restore Section -->
+                                <div class="bg-white p-6 rounded-lg shadow-md">
+                                    <h3 class="text-xl font-bold text-gray-800 mb-2 border-b pb-2">បម្រុងទុក និងស្ដារឡើងវិញ</h3>
+                                    <p class="text-gray-600 text-sm mb-4">បម្រុងទុកទិន្នន័យទាំងអស់ (សៀវភៅ ខ្ចី-សង តាមថ្នាក់ កំណត់ត្រាចូលអាន ទីតាំង សិស្ស និងការកំណត់) ជា .LBBCK ហើយអាចស្ដារឡើងវិញពេលក្រោយ។</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button id="btn-backup-all" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center">
+                                            <i class="fas fa-database mr-2"></i> បម្រុងទុកទិន្នន័យទាំងអស់
+                                        </button>
+                                        <div class="flex items-stretch gap-2">
+                                            <button id="btn-restore-all" type="button" class="flex-1 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 flex items-center justify-center">
+                                                <i class="fas fa-upload mr-2"></i> ស្ដារពី .LBBCK
+                                            </button>
+                                            <input type="file" id="file-restore-lbbck" accept=".lbbck,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+                                        </div>
                                     </div>
+                                    <p class="text-xs text-gray-500 mt-2">សូមរង់ចាំអំឡុងពេលបម្រុងទុក ឬ ស្ដារឡើងវិញ។</p>
                                 </div>
                             </div>
                             <!-- Right Column: Data & Danger Zone -->
@@ -887,7 +918,7 @@
 
                                 <div class="bg-white p-6 rounded-lg shadow-md">
                                     <h3 class="text-xl font-bold text-red-600 mb-4 border-b pb-2">តំបន់គ្រោះថ្នាក់</h3>
-                                    <p class="text-gray-600 mb-6">ការកំណត់ខាងក្រោមនឹងលុបទិន្នន័យជាអចិន្ត្រៃយ៍ ហើយមិនអាចមិនធ្វើវិញបានទេ។ សូមប្រើដោយប្រុងប្រយត្នបំផុត។</p>
+                                    <p class="text-gray-600 mb-6">ការលុបទិន្នន័យខាងក្រោមជាអចិន្ត្រៃយ៍ មិនអាចស្តារឡើងវិញបានទេ សូមប្រុងប្រយត្នបំផុត!</p>
                                     
                                     <div class="space-y-6">
                                         <!-- Delete Buttons -->
@@ -1117,19 +1148,21 @@
     </div>
     <!-- Password Confirmation Modal -->
     <div id="password-confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden no-print z-30">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl">
             <h3 class="text-xl font-bold mb-4">បញ្ជាក់ការលុប</h3>
             <p class="text-gray-600 mb-4">ដើម្បីលុបទិន្នន័យនេះបាន សូមវាយបញ្ចូលពាក្យសម្ងាត់របស់អ្នក រួចចុចប៊ូតុង "បញ្ជាក់"។</p>
             <form id="password-confirm-form">
                 <input type="hidden" id="collection-to-delete">
                 <div>
                     <label for="user-password" class="block text-gray-700 mb-1">ពាក្យសម្ងាត់</label>
-                    <input type="password" id="user-password" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    <div class="mt-1 flex items-center gap-2">
+                        <input type="password" id="user-password" class="flex-grow px-3 py-2 border border-gray-300 rounded-md" required>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button" onclick="window.closePasswordConfirmModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md whitespace-nowrap">បោះបង់</button>
+                            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md whitespace-nowrap">បញ្ជាក់</button>
+                        </div>
+                    </div>
                     <p id="password-error" class="text-red-500 text-sm mt-1"></p>
-                </div>
-                <div class="flex justify-end mt-6 space-x-2">
-                    <button type="button" onclick="window.closePasswordConfirmModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md">បោះបង់</button>
-                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md">បញ្ជាក់</button>
                 </div>
             </form>
         </div>
@@ -1137,11 +1170,13 @@
 
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex-col items-center justify-center z-40 hidden">
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center z-40 hidden">
         <i class="fas fa-spinner fa-spin text-white text-5xl"></i>
         <p class="text-white text-xl mt-4">កំពុងដំណើរការ...</p>
     </div>
     
+    <!-- SheetJS for Excel (.xlsx/.xls) parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Link to the external JavaScript file -->
     <script type="module" src="./app.js"></script>
 </body>
