@@ -202,6 +202,11 @@
     <input type="text" id="searchBox" placeholder="ស្វែងរកតាមឈ្មោះ ឬអត្តលេខ" />
     <button onclick="window.print()">🖨️ បោះពុម្ព / រក្សាទុក PDF</button>
     
+    <textarea id="manualIdsInput" rows="2" placeholder="វាយអត្តលេខសិស្ស ចែកដោយសញ្ញា (, ) ឬបន្តបន្ទាត់ (មិនកំណត់)" style="min-width: 320px;"></textarea>
+    <button id="applyManualIdsBtn" type="button">អនុវត្ត ID ដោយដៃ</button>
+    <button id="clearManualIdsBtn" type="button">ជម្រះ</button>
+    <span id="manualIdsStatus" style="font-size: 12px; color: #2563eb;"></span>
+
     <p style="color: red; text-align: center; width: 100%; flex-basis: 100%;">
       🖨️ ដើម្បីបោះពុម្ព Logo អោយចេញ សូមចុច "More Settings" ហើយ ✓ "Background graphics"
     </p>
@@ -222,6 +227,7 @@
     let allData = [];
     let settingsData = {};
     let currentUserId = null;
+    let manualIds = [];
 
     // Authentication state listener
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -316,6 +322,17 @@
             // This ensures the summary is updated if a default class is selected later or if 'all' is chosen.
             filterAndDisplay();
             
+            const applyBtn = document.getElementById('applyManualIdsBtn');
+            const clearBtn = document.getElementById('clearManualIdsBtn');
+            if (applyBtn && !applyBtn.__wired) {
+              applyBtn.addEventListener('click', window.applyManualIds);
+              applyBtn.__wired = true;
+            }
+            if (clearBtn && !clearBtn.__wired) {
+              clearBtn.addEventListener('click', window.clearManualIds);
+              clearBtn.__wired = true;
+            }
+            
         } catch (error) {
             console.error('Error loading data:', error);
             document.getElementById('loading').innerHTML = '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ';
@@ -405,6 +422,53 @@
       styleElement.innerHTML = `.card::before { background-image: url('${cardBgUrl}'); }`;
     }
 
+    function getIdKeyFromAllData() {
+      if (!allData || allData.length === 0) return null;
+      return Object.keys(allData[0]).find(k => k.toLowerCase().includes('អត្តលេខ'));
+    }
+
+    function normalizeId(v) {
+      if (v === null || v === undefined) return '';
+      return String(v).trim();
+    }
+
+    function parseManualIdsInput(raw) {
+      if (!raw) return [];
+      const parts = raw.split(/[\n,]+/).map(s => normalizeId(s)).filter(Boolean);
+      const seen = new Set();
+      const unique = [];
+      for (const p of parts) {
+        if (!seen.has(p)) { seen.add(p); unique.push(p); }
+      }
+      return unique;
+    }
+
+    function updateManualIdsStatus() {
+      const el = document.getElementById('manualIdsStatus');
+      if (!el) return;
+      if (manualIds.length > 0) {
+        el.textContent = `របៀបជ្រើសរើសដោយដៃ: ${manualIds.length} ID`;
+      } else {
+        el.textContent = '';
+      }
+    }
+
+    window.applyManualIds = () => {
+      const raw = document.getElementById('manualIdsInput')?.value || '';
+      const list = parseManualIdsInput(raw);
+      manualIds = list;
+      updateManualIdsStatus();
+      filterAndDisplay();
+    };
+
+    window.clearManualIds = () => {
+      manualIds = [];
+      const input = document.getElementById('manualIdsInput');
+      if (input) input.value = '';
+      updateManualIdsStatus();
+      filterAndDisplay();
+    };
+
     function filterAndDisplay() {
       // Ensure data is loaded before proceeding
       if (allData.length === 0 && currentUserId) {
@@ -418,6 +482,32 @@
          return; // No user, don't try to filter
       }
       
+      if (manualIds.length > 0) {
+        const idKey = getIdKeyFromAllData();
+        const summaryEl = document.getElementById("class-summary");
+
+        const byId = new Map();
+        if (idKey) {
+          for (const std of allData) {
+            const sid = normalizeId(std[idKey]);
+            if (sid) byId.set(sid, std);
+          }
+        }
+
+        const selected = [];
+        for (const mid of manualIds) {
+          const std = byId.get(normalizeId(mid));
+          if (std) selected.push(std);
+        }
+
+        if (summaryEl) {
+          summaryEl.textContent = `| ជ្រើសរើសដោយដៃ: ${selected.length} នាក់`;
+        }
+
+        displayCards(selected);
+        return;
+      }
+
       // Define keys needed for filtering and summary
       const classKey = Object.keys(allData[0]).find(k => k.includes('ថ្នាក់'));
       const nameKey = Object.keys(allData[0]).find(k => k.includes('នាមខ្លួន'));
