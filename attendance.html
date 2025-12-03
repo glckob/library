@@ -2725,8 +2725,19 @@
     // Populate selects and tables using Supabase
     window.loadClassesForSelect = async function loadClassesForSelect() {
         if (!(await ensureAuth())) return;
-        const classes = await fetchClasses();
+        let classes = await fetchClasses();
+        // Fallback: derive classes from students if classes table is empty
+        if (!classes || classes.length === 0) {
+            const { data: sdata, error: sErr } = await supabase
+                .from('students').select('class_id').eq('user_id', currentUserId);
+            if (!sErr) {
+                const defaultYear = localStorage.getItem('settingAcademicYear') || '';
+                const uniq = [...new Set((sdata||[]).map(s => s.class_id).filter(Boolean))];
+                classes = uniq.map(id => ({ class_id: id, class_name: id, academic_year: defaultYear }));
+            }
+        }
         window.allClasses = classes; // keep cache used elsewhere in page
+
         // class selects
         const selects = document.querySelectorAll('.class-select');
         selects.forEach(sel => {
@@ -2739,6 +2750,7 @@
                 opt.textContent = c.class_name + (c.academic_year ? ` (${c.academic_year})` : '');
                 sel.appendChild(opt);
             });
+
             if (prev) sel.value = prev;
         });
         // report/class filters
@@ -2764,6 +2776,47 @@
             });
             if (prev) rosterSel.value = prev;
         }
+    }
+
+    // Table renderer for Classes (with fallback derived from students)
+    window.loadClassesForTable = async function loadClassesForTable() {
+        if (!(await ensureAuth())) return;
+        const classList = document.getElementById('class-list');
+        if (!classList) return;
+        classList.innerHTML = '<tr><td colspan="4" class="text-center p-4">កំពុងទាញយក...</td></tr>';
+        // Load classes (or derive from students)
+        let classes = await fetchClasses();
+        if (!classes || classes.length === 0) {
+            const { data: sdata, error: sErr } = await supabase
+                .from('students').select('class_id').eq('user_id', currentUserId);
+            if (!sErr) {
+                const defaultYear = localStorage.getItem('settingAcademicYear') || '';
+                const uniq = [...new Set((sdata||[]).map(s => s.class_id).filter(Boolean))];
+                classes = uniq.map(id => ({ class_id: id, class_name: id, academic_year: defaultYear }));
+            }
+        }
+        // Cache for other consumers
+        window.allClasses = classes;
+        // Filter by search
+        const search = (document.getElementById('searchClassInput')?.value || '').toLowerCase();
+        const filtered = (classes || []).filter(c => (
+            (c.class_id||'').toLowerCase().includes(search) || (c.class_name||'').toLowerCase().includes(search)
+        ));
+        if (filtered.length === 0) {
+            classList.innerHTML = '<tr><td colspan="4" class="text-center p-4">មិនមានទិន្នន័យទេ។</td></tr>';
+            return;
+        }
+        // Sort by class_id
+        filtered.sort((a,b) => (a.class_id||'').localeCompare(b.class_id||''));
+        // Render rows (leave action column empty for now)
+        classList.innerHTML = filtered.map(cls => `
+            <tr>
+                <td class="border px-4 py-2">${cls.class_id||''}</td>
+                <td class="border px-4 py-2">${cls.class_name||''}</td>
+                <td class="border px-4 py-2">${cls.academic_year||''}</td>
+                <td class="border px-4 py-2 whitespace-nowrap"></td>
+            </tr>
+        `).join('');
     }
 
     window.loadStudents = async function loadStudents() {
