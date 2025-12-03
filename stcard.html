@@ -285,7 +285,17 @@
                 offset += pageSize;
             }
             
-            allData = allStudents; // Use the complete list
+            // Map Supabase columns to Khmer-keyed fields used by this page
+            allData = (allStudents || []).map(r => ({
+                ...r,
+                'អត្តលេខ': r['អត្តលេខ'] ?? r.student_id ?? '',
+                'នាមត្រកូល': r['នាមត្រកូល'] ?? r.last_name ?? '',
+                'នាមខ្លួន': r['នាមខ្លួន'] ?? r.first_name ?? '',
+                'ភេទ': r['ភេទ'] ?? r.gender ?? '',
+                'ថ្នាក់': r['ថ្នាក់'] ?? r.class_id ?? '',
+                'ថ្ងៃខែឆ្នាំកំណើត': r['ថ្ងៃខែឆ្នាំកំណើត'] ?? r.dob ?? '',
+                'រូបថត URL': r['រូបថត URL'] ?? r.photo_url ?? ''
+            }));
             populateFilters(allData);
             
             // Don't display cards initially - wait for user to select a class
