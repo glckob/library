@@ -1683,8 +1683,20 @@ const renderStudents = () => {
     }
 
     const searchTerm = searchStudentsInput.value.toLowerCase();
-    const selectedClass = classFilter.value; 
     const classKey = students.length > 0 ? Object.keys(students[0]).find(k => k.includes('ថ្នាក់')) : null;
+    // Populate class filter options from current students if empty or first load
+    if (classFilter && classKey) {
+        const hasOptions = classFilter.options && classFilter.options.length > 0;
+        if (!hasOptions) {
+            const classSet = new Set();
+            students.forEach(s => { const v = (s[classKey] || '').toString().trim(); if (v) classSet.add(v); });
+            const sorted = Array.from(classSet).sort((a,b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            classFilter.innerHTML = '';
+            const optAll = document.createElement('option'); optAll.value = ''; optAll.textContent = 'ថ្នាក់ទាំងអស់'; classFilter.appendChild(optAll);
+            sorted.forEach(cls => { const o = document.createElement('option'); o.value = cls; o.textContent = cls; classFilter.appendChild(o); });
+        }
+    }
+    const selectedClass = classFilter ? classFilter.value : '';
 
     let filteredStudents = students;
 
@@ -1713,10 +1725,15 @@ const renderStudents = () => {
     // Show all available columns including new ones
     const headers = ['ល.រ', 'អត្តលេខ', 'នាមត្រកូល', 'នាមខ្លួន', 'ថ្នាក់', 'ភេទ', 'ថ្ងៃខែឆ្នាំកំណើត', 'រូបថត URL', 'សកម្មភាព'];
     
+    // Sort by last name (នាមត្រកូល) A→Z, then first name
     const sortedStudents = [...filteredStudents].sort((a, b) => {
-        const numA = parseInt(a['ល.រ'], 10) || 0;
-        const numB = parseInt(b['ល.រ'], 10) || 0;
-        return numA - numB;
+        const lastA = (a['នាមត្រកូល'] || '').toString().trim();
+        const lastB = (b['នាមត្រកូល'] || '').toString().trim();
+        const cmpLast = lastA.localeCompare(lastB);
+        if (cmpLast !== 0) return cmpLast;
+        const firstA = (a['នាមខ្លួន'] || '').toString().trim();
+        const firstB = (b['នាមខ្លួន'] || '').toString().trim();
+        return firstA.localeCompare(firstB);
     });
 
     // Render headers
@@ -1727,14 +1744,18 @@ const renderStudents = () => {
     });
     studentListHeader.innerHTML = headerHTML;
 
-    // Render rows
-    sortedStudents.forEach(student => {
+    // Render rows with serial regenerated per current view
+    sortedStudents.forEach((student, idx) => {
         const row = document.createElement('tr');
         row.className = 'border-b';
         
         let rowHTML = '';
         headers.slice(0, -1).forEach(header => { // All headers except 'Actions'
-            rowHTML += `<td class="p-3">${student[header] || ''}</td>`;
+            if (header === 'ល.រ') {
+                rowHTML += `<td class="p-3">${idx + 1}</td>`;
+            } else {
+                rowHTML += `<td class="p-3">${student[header] || ''}</td>`;
+            }
         });
         
         // Add actions cell
@@ -2615,10 +2636,10 @@ async function loadStudents(userId) {
     if (allRows.length >= 0) {
         // Normalize to Khmer keys expected by the UI
         const rows = allRows;
-        students = rows.map((r) => {
+        students = rows.map((r, i) => {
             // Handle both old format (name field) and new format (separate fields)
-            let lastName = r['នាមត្រកូល'] || '';
-            let firstName = r['នាមខ្លួន'] || '';
+            let lastName = r['នាមត្រកូល'] || r.last_name || '';
+            let firstName = r['នាមខ្លួន'] || r.first_name || '';
             
             // Fallback to old format if new format is empty
             if (!lastName && !firstName && r.name) {
@@ -2633,13 +2654,14 @@ async function loadStudents(userId) {
             return {
                 id: r.id,
                 user_id: r.user_id,
-                'ល.រ': r['ល.រ'] || r.serial_number || '',
+                // Fallback serial number if not present in DB: use row index (1-based)
+                'ល.រ': (r['ល.រ'] != null && r['ល.រ'] !== '') ? r['ល.រ'] : (i + 1),
                 'អត្តលេខ': r['អត្តលេខ'] || r.student_id || '',
                 'នាមត្រកូល': lastName,
                 'នាមខ្លួន': firstName,
                 'ភេទ': r['ភេទ'] || r.gender || '',
-                'ថ្នាក់': r['ថ្នាក់'] || r.class || '',
-                'ថ្ងៃខែឆ្នាំកំណើត': r['ថ្ងៃខែឆ្នាំកំណើត'] || r.date_of_birth || '',
+                'ថ្នាក់': r['ថ្នាក់'] || r.class_id || '',
+                'ថ្ងៃខែឆ្នាំកំណើត': r['ថ្ងៃខែឆ្នាំកំណើត'] || r.dob || '',
                 'រូបថត URL': r['រូបថត URL'] || r.photo_url || ''
             };
         });
@@ -3062,30 +3084,201 @@ function normalizeStudents(rows) {
     return norm;
 }
 
+// Normalize various DOB inputs to ISO YYYY-MM-DD
+function normalizeDob(v) {
+    if (v == null) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    // Already ISO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // Excel serial number (days since 1899-12-30)
+    const serial = Number(s);
+    if (!Number.isNaN(serial) && /^\d+$/.test(s)) {
+        // Accept plausible DOB serials
+        if (serial > 20000 && serial < 60000) {
+            const epoch = new Date(Date.UTC(1899, 11, 30));
+            const ms = serial * 24 * 60 * 60 * 1000;
+            const d = new Date(epoch.getTime() + ms);
+            const yyyy = d.getUTCFullYear();
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+    }
+    // Normalize common separators to '/'
+    const norm = s.replace(/[.\-]/g, '/').replace(/\s+/g, '').replace(/\/+/g, '/');
+    // Handle D/M/YYYY or M/D/YYYY (allow malformed like 29/010/2012)
+    let m = norm.match(/^(\d{1,2})\/(\d{1,3})\/(\d{4})$/);
+    if (m) {
+        const a = parseInt(m[1], 10); // first component
+        const b = parseInt(m[2], 10); // second component
+        const yyyy = m[3];
+        // Decide order: if second > 12 and first <= 12 => MM/DD; if first > 12 and second <= 12 => DD/MM; otherwise default to MM/DD
+        let month; let day;
+        if (b > 12 && a >= 1 && a <= 12) { month = a; day = b; }
+        else if (a > 12 && b >= 1 && b <= 12) { day = a; month = b; }
+        else { month = a; day = b; }
+        const mm = String(month).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const candidate = `${yyyy}-${mm}-${dd}`;
+        const check = new Date(candidate + 'T00:00:00Z');
+        if (!isNaN(check.getTime()) && (check.getUTCFullYear() === Number(yyyy)) && (check.getUTCMonth() + 1 === Number(mm)) && (check.getUTCDate() === Number(dd))) {
+            return candidate;
+        }
+        return null;
+    }
+    // Handle cases like '15/012012' -> dd/mmYYYY (missing '/'): fall back to digits-only ddmmyyyy
+    const digits = s.replace(/\D/g, '');
+    if (digits.length >= 8) {
+        const yyyy = digits.slice(-4);
+        const head = digits.slice(0, digits.length - 4);
+        // Try MMDD + YYYY first (US style)
+        if (head.length >= 4) {
+            const mmRaw = head.slice(0, 2);
+            const ddRaw = head.slice(2, 4);
+            const m0 = parseInt(mmRaw, 10);
+            const d0 = parseInt(ddRaw, 10);
+            if (!isNaN(m0) && !isNaN(d0)) {
+                const mm = String(m0).padStart(2, '0');
+                const dd = String(d0).padStart(2, '0');
+                const dt = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
+                if (!isNaN(dt.getTime()) && dt.getUTCFullYear() === Number(yyyy) && (dt.getUTCMonth() + 1) === Number(mm) && dt.getUTCDate() === Number(dd)) {
+                    return `${yyyy}-${mm}-${dd}`;
+                }
+            }
+        }
+        // Fallback try DDMM + YYYY
+        if (head.length >= 4) {
+            const ddRaw = head.slice(0, 2);
+            const mmRaw = head.slice(2, 4);
+            const d0 = parseInt(ddRaw, 10);
+            const m0 = parseInt(mmRaw, 10);
+            if (!isNaN(m0) && !isNaN(d0)) {
+                const mm = String(m0).padStart(2, '0');
+                const dd = String(d0).padStart(2, '0');
+                const dt = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
+                if (!isNaN(dt.getTime()) && dt.getUTCFullYear() === Number(yyyy) && (dt.getUTCMonth() + 1) === Number(mm) && dt.getUTCDate() === Number(dd)) {
+                    return `${yyyy}-${mm}-${dd}`;
+                }
+            }
+        }
+    }
+    // Fallback: try Date parse
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const candidate = `${yyyy}-${mm}-${dd}`;
+        const check = new Date(candidate + 'T00:00:00Z');
+        if (!isNaN(check.getTime()) && check.getUTCFullYear() === yyyy && (check.getUTCMonth() + 1) === Number(mm) && check.getUTCDate() === Number(dd)) {
+            return candidate;
+        }
+    }
+    return null; // invalid -> store null to avoid DB error
+}
+
 async function syncStudentsToSupabase(studentData) {
     if (!currentUserId) return;
     
-    // Delete existing students for this user
-    await supabase
-        .from('students')
-        .delete()
-        .eq('user_id', currentUserId);
-    
-    // Add user_id to each student record
-    const studentsWithUserId = studentData.map(student => ({
-        ...student,
-        user_id: currentUserId
-    }));
-    
-    // Insert new students
-    const { error } = await supabase
-        .from('students')
-        .insert(studentsWithUserId);
-    
-    if (error) {
-        console.error('Error syncing students:', error);
-        throw error;
+    // Map UI Khmer keys to Supabase columns, trim, and insert ALL rows (allow duplicates)
+    const totalRows = Array.isArray(studentData) ? studentData.length : 0;
+    let nonEmptyIdRows = 0;
+    let blankIdRows = 0;
+    let duplicateWithinFile = 0; // informational only
+    const blankIdRowIndexes = [];
+    const duplicateIdList = [];
+    const nullDobIds = [];
+    const payloads = [];
+    const seenIds = new Map();
+    for (let i = 0; i < studentData.length; i++) {
+        const s = studentData[i];
+        const sidRaw = s['អត្តលេខ'];
+        const sid = (sidRaw == null ? '' : String(sidRaw)).trim();
+        if (!sid) { blankIdRows++; blankIdRowIndexes.push({ index: i + 2, row: s }); continue; } // CSV index + header
+        nonEmptyIdRows++;
+        const normalizedDob = normalizeDob(s['ថ្ងៃខែឆ្នាំកំណើត']);
+        if (s['ថ្ងៃខែឆ្នាំកំណើត'] && !normalizedDob) {
+            nullDobIds.push({ student_id: sid, raw: s['ថ្ងៃខែឆ្នាំកំណើត'], index: i + 2 });
+        }
+        const payload = {
+            user_id: currentUserId,
+            student_id: sid,
+            last_name: (s['នាមត្រកូល'] ?? '').toString().trim(),
+            first_name: (s['នាមខ្លួន'] ?? '').toString().trim(),
+            gender: (s['ភេទ'] ?? '').toString().trim(),
+            class_id: (s['ថ្នាក់'] ?? '').toString().trim(),
+            dob: normalizedDob,
+            photo_url: (s['រូបថត URL'] ?? '').toString().trim() || null
+        };
+        if (seenIds.has(sid)) { duplicateWithinFile++; duplicateIdList.push({ student_id: sid, index: i + 2 }); }
+        seenIds.set(sid, true);
+        payloads.push(payload);
     }
+    
+    // Insert ALL rows (allow duplicates) in batches to avoid payload limits
+    const batchSize = 500;
+    let insertedOrUpdated = 0;
+    const errors = [];
+    for (let i = 0; i < payloads.length; i += batchSize) {
+        const batch = payloads.slice(i, i + batchSize);
+        const { data, error } = await supabase
+            .from('students')
+            .insert(batch)
+            .select('id');
+        if (error) {
+            console.error('Error syncing students (batch):', error);
+            errors.push({ indexStart: i, indexEnd: Math.min(i + batchSize - 1, payloads.length - 1), error });
+            // Continue with next batches to insert as many as possible
+            continue;
+        }
+        insertedOrUpdated += Array.isArray(data) ? data.length : 0;
+    }
+
+    if (errors.length > 0) {
+        // Surface first error with helpful hint
+        const e = errors[0].error || {};
+        const msg = e.message || JSON.stringify(e);
+        const hint = e.hint || '';
+        // Common guidance
+        if (e.code === '23505') {
+            console.error('Unique constraint error detected. If you want duplicates, drop constraint students_user_id_student_id_key.');
+        }
+        throw new Error(`Some batches failed: ${msg} ${hint ? '(' + hint + ')' : ''}`);
+    }
+    console.log('[Import] Students CSV summary:', {
+        totalRows,
+        nonEmptyIdRows,
+        blankIdRows,
+        duplicateWithinFile,
+        insertedOrUpdated
+    });
+    // Detailed logs
+    if (blankIdRowIndexes.length > 0) {
+        console.log('[Import] Rows skipped due to blank student_id:', blankIdRowIndexes);
+    }
+    if (duplicateIdList.length > 0) {
+        console.log('[Import] Duplicate student_id values in file (last wins):', duplicateIdList);
+    }
+    if (nullDobIds.length > 0) {
+        console.log('[Import] DOB normalized to null for these IDs (invalid dates):', nullDobIds);
+    }
+    // Build a small CSV report for download (problem rows only)
+    try {
+        const lines = ['issue,student_id,raw_dob'];
+        duplicateIdList.forEach(x => lines.push(`duplicate,${JSON.stringify(x.student_id)},`));
+        nullDobIds.forEach(x => lines.push(`dob_null,${JSON.stringify(x.student_id)},${JSON.stringify(x.raw)}`));
+        blankIdRowIndexes.forEach(x => lines.push(`blank_id,,`));
+        const reportCsv = lines.join('\n');
+        const blob = new Blob([reportCsv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        console.log('[Import] Problem report CSV URL (copy and open to download):', url);
+    } catch (_) {}
+    try {
+        if (typeof window.showToast === 'function') {
+            window.showToast(`នាំចូលសិស្សបាន ${insertedOrUpdated}/${totalRows} ជួរ · អត្តលេខទទេ ${blankIdRows} · ស្ទួនក្នុងឯកសារ ${duplicateWithinFile}`, 'bg-blue-600');
+        }
+    } catch(_) {}
 }
 
 // Normalize arbitrary CSV/Excel columns into expected book schema
@@ -4411,7 +4604,7 @@ window.openStudentModal = (id = null) => {
     const modalTitle = document.getElementById('student-modal-title');
     
     if (id) {
-        const student = students.find(s => s.id === id);
+        const student = students.find(s => String(s.id) === String(id));
         if (student) {
             modalTitle.textContent = 'កែសម្រួលព័ត៌មានសិស្ស';
             document.getElementById('student-id').value = student.id;
@@ -4553,17 +4746,16 @@ document.getElementById('student-form').addEventListener('submit', async (e) => 
         studentData['ល.រ'] = Number.isNaN(n) ? studentData['ល.រ'] : n;
     }
 
-    // Build Supabase payload using Khmer column names to match database
+    // Build Supabase payload using English snake_case columns
     const supabasePayload = {
         user_id: currentUserId,
-        'អត្តលេខ': studentData['អត្តលេខ'],
-        'នាមត្រកូល': studentData['នាមត្រកូល'],
-        'នាមខ្លួន': studentData['នាមខ្លួន'],
-        'ភេទ': studentData['ភេទ'],
-        'ថ្នាក់': studentData['ថ្នាក់'],
-        'ល.រ': studentData['ល.រ'],
-        'ថ្ងៃខែឆ្នាំកំណើត': studentData['ថ្ងៃខែឆ្នាំកំណើត'],
-        'រូបថត URL': studentData['រូបថត URL']
+        student_id: studentData['អត្តលេខ'],
+        last_name: studentData['នាមត្រកូល'],
+        first_name: studentData['នាមខ្លួន'],
+        gender: studentData['ភេទ'],
+        class_id: studentData['ថ្នាក់'],
+        dob: normalizeDob(studentData['ថ្ងៃខែឆ្នាំកំណើត']),
+        photo_url: studentData['រូបថត URL']
     };
 
     try {
@@ -4589,7 +4781,7 @@ document.getElementById('student-form').addEventListener('submit', async (e) => 
         renderAll();
         // Centered toast for successful student save
         try {
-            const fullName = `${(supabasePayload['នាមត្រកូល'] || '').trim()} ${(supabasePayload['នាមខ្លួន'] || '').trim()}`.trim();
+            const fullName = `${(supabasePayload.last_name || '').trim()} ${(supabasePayload.first_name || '').trim()}`.trim();
             if (typeof window.showToast === 'function') {
                 window.showToast(`បានរក្សាទុកសិស្សឈ្មោះ ${fullName} ដោយជោគជ័យ!`, 'bg-green-600');
             }
@@ -5930,11 +6122,44 @@ const populateBookDropdowns = () => {
     });
 };
 
+// Populate Students page class filter dropdown from current students (guarded)
+window.populateStudentClassFilter = window.populateStudentClassFilter || function() {
+    try {
+        const select = document.getElementById('student-class-filter');
+        if (!select) return;
+        const classKey = (students && students.length > 0)
+            ? Object.keys(students[0]).find(k => k.includes('ថ្នាក់'))
+            : null;
+        const set = new Set();
+        if (classKey) {
+            students.forEach(s => {
+                const v = (s[classKey] || '').toString().trim();
+                if (v) set.add(v);
+            });
+        }
+        const items = Array.from(set).sort((a,b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        const prev = select.value || '';
+        select.innerHTML = '';
+        const optAll = document.createElement('option');
+        optAll.value = '';
+        optAll.textContent = 'ថ្នាក់ទាំងអស់';
+        select.appendChild(optAll);
+        items.forEach(cls => {
+            const o = document.createElement('option');
+            o.value = cls; o.textContent = cls; select.appendChild(o);
+        });
+        // Try to preserve previous selection if still present
+        if (prev && items.includes(prev)) select.value = prev;
+    } catch (_) {
+        // no-op
+    }
+};
+
 // --- SELECTED BOOKS MANAGEMENT ---
 const renderSelectedLoanBooks = () => {
     const container = document.getElementById('loan-selected-books-list');
     const noMessage = document.getElementById('loan-no-books-message');
-    
+    // ... (rest of the code remains the same)
     if (selectedLoanBooks.length === 0) {
         noMessage.style.display = 'block';
         // Hide all book items
