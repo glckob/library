@@ -1003,6 +1003,13 @@
             if (!scheduleClassId || !startTime || !endTime) return showToast("សូមបំពេញគ្រប់ប្រអប់។", true);
             try {
                 await db.schedule.add({ classId: scheduleClassId, dayOfWeek, startTime, endTime });
+                if (window.currentUserId -and  -ne ) {}
+                if (window.currentUserId && window.supabase) {
+                    try {
+                        const { error: sErr } = await window.supabase.from('schedules').insert({ user_id: window.currentUserId, class_id: scheduleClassId, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime });
+                        if (sErr) { /* ignore to keep UX smooth */ }
+                    } catch {}
+                }
                 event.target.reset();
                 showToast("បានបន្ថែម កាលវិភាគថ្មី។");
                 loadSchedules();
@@ -2680,7 +2687,7 @@
     // Reuse same Supabase URL/key as app.js
     const supabaseUrl = 'https://bcbwrymhpjcncgiwjllr.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYndyeW1ocGpjbmNnaXdqbGxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MDA5MDEsImV4cCI6MjA3MTE3NjkwMX0.ZiU1uF9_5h2N9choQvNihTvKWfqtPlHdvQm2iPaI2jw';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);`n    window.supabase = supabase;
 
     let currentUserId = null;
     async function ensureAuth() {
@@ -2689,13 +2696,12 @@
             if (error) throw error;
             const user = data?.user;
             if (!user) {
-                currentUserId = null;
+                currentUserId = null;`n                window.currentUserId = null;`n            window.currentUserId = null;
                 return true;
             }
-            currentUserId = user.id;
-            return true;
+            currentUserId = user.id;`n            window.currentUserId = currentUserId;`n            return true;
         } catch (e) {
-            currentUserId = null;
+            currentUserId = null;`n            window.currentUserId = null;
             return true;
         }
     }
@@ -2873,8 +2879,8 @@
     }
 
     // Scan handler: Enter triggers upsert into attendance_logs
-    async function processScan(code) {
-        if (!(await ensureAuth())) return;
+    
+        if (!currentUserId && (window.onScanSuccess instanceof Function)) { return window.onScanSuccess(code); }
         const input = document.getElementById('usb-scanner-input');
         const statusBox = document.getElementById('scan-result');
         const show = (msg, ok=false) => { if(statusBox){ statusBox.innerHTML = `<div class="p-4 ${ok?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded-lg"><p class="text-lg">${msg}</p></div>`; } };
@@ -3038,3 +3044,94 @@
     </script>
 </body>
 </html>
+
+<script>
+(function(){
+  function offline(){ return !window.currentUserId; }
+  if (!offline() || typeof db === 'undefined') return;
+  // Dexie-based fallback for class selects
+  window.loadClassesForSelect = async function(){
+    try {
+      const classes = await db.classes.toArray();
+      window.allClasses = (classes||[]).map(c => ({ class_id: c.classId, class_name: c.className, academic_year: c.academicYear }));
+      const selects = document.querySelectorAll('.class-select');
+      selects.forEach(sel => {
+        const prev = sel.value;
+        const firstOption = sel.options[0] ? sel.options[0].outerHTML : '<option value="">-- ជ្រើសរើសថ្នាក់ --</option>';
+        sel.innerHTML = firstOption;
+        (window.allClasses||[]).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.class_id;
+          opt.textContent = c.class_name + (c.academic_year ? ' ('+c.academic_year+')' : '');
+          sel.appendChild(opt);
+        });
+        if (prev) sel.value = prev;
+      });
+      const repSel = document.getElementById('reportFilterClass');
+      if (repSel) {
+        const prev = repSel.value;
+        repSel.innerHTML = '<option value="none" selected>-- សូមជ្រើសរើសថ្នាក់ --</option><option value="">-- គ្រប់ថ្នាក់រៀន --</option>';
+        (window.allClasses||[]).forEach(c => { const opt = document.createElement('option'); opt.value = c.class_id; opt.textContent = c.class_name; repSel.appendChild(opt); });
+        if (prev) repSel.value = prev;
+      }
+      const rosterSel = document.getElementById('rosterFilterClass');
+      if (rosterSel) {
+        const prev = rosterSel.value;
+        rosterSel.innerHTML = '<option value="none" selected>-- សូមជ្រើសរើសថ្នាក់ --</option>';
+        (window.allClasses||[]).forEach(c => { const opt = document.createElement('option'); opt.value = c.class_id; opt.textContent = c.class_name; rosterSel.appendChild(opt); });
+        if (prev) rosterSel.value = prev;
+      }
+    } catch(e){ console.error(e); }
+  };
+  // Dexie-based fallback for students
+  window.loadStudents = async function(){
+    const classFilter = (document.getElementById('filterStudentClass')||{}).value || 'all';
+    const search = ((document.getElementById('searchStudentInput')||{}).value || '').toLowerCase().trim();
+    const sortBy = (document.getElementById('sortStudentBy')||{}).value || 'name';
+    const listEl = document.getElementById('student-list'); if (!listEl) return;
+    let students = await db.students.toArray();
+    if (classFilter !== 'all') students = students.filter(s => s.classId === classFilter);
+    if (search) students = students.filter(s => (s.studentId+' '+s.lastName+' '+s.firstName).toLowerCase().includes(search));
+    students.sort((a,b) => sortBy==='class' ? (a.classId||'').localeCompare(b.classId||'') : (a.lastName+' '+a.firstName).localeCompare(b.lastName+' '+b.firstName));
+    listEl.innerHTML = '';
+    const classNameById = new Map(((window.allClasses)||[]).map(c => [c.class_id, c.class_name]));
+    students.forEach(s => {
+      const tr = document.createElement('tr'); tr.className='border-b';
+      const photo = s.photoUrl ? '<img src="'+s.photoUrl+'" class="h-10 w-10 object-cover rounded"/>' : '';
+      const age = (typeof window.calculateAge==='function' && s.dob) ? window.calculateAge(s.dob) : '';
+      const classLabel = classNameById.get(s.classId) || s.classId || '';
+      tr.innerHTML = '<td class="px-4 py-2">'+photo+'</td>'+
+                     '<td class="px-4 py-2">'+s.studentId+'</td>'+
+                     '<td class="px-4 py-2">'+s.lastName+' '+s.firstName+'</td>'+
+                     '<td class="px-4 py-2">'+(s.gender||'')+'</td>'+
+                     '<td class="px-4 py-2">'+age+'</td>'+
+                     '<td class="px-4 py-2">'+classLabel+'</td>'+
+                     '<td class="px-4 py-2"><button class="btn btn-blue" onclick="openEditModal(\'student\', '+s.id+')">កែសម្រួល</button></td>';
+      listEl.appendChild(tr);
+    });
+  };
+  // Dexie-based fallback for schedules
+  window.loadSchedules = async function(){
+    const listEl = document.getElementById('schedule-list'); if (!listEl) return;
+    const search = ((document.getElementById('searchScheduleInput')||{}).value || '').toLowerCase().trim();
+    let items = await db.schedule.toArray();
+    if (search) items = items.filter(x => (x.classId||'').toLowerCase().includes(search));
+    listEl.innerHTML='';
+    const dayMap = {0:'អាទិត្យ',1:'ច័ន្ទ',2:'អង្គារ',3:'ពុធ',4:'ព្រហស្បតិ៍',5:'សុក្រ',6:'សៅរ៍'};
+    items.forEach(sc => {
+      const tr = document.createElement('tr'); tr.className='border-b';
+      tr.innerHTML = '<td class="px-4 py-2">'+(sc.classId||'')+'</td>'+
+                     '<td class="px-4 py-2">'+dayMap[sc.dayOfWeek]+'</td>'+
+                     '<td class="px-4 py-2">'+sc.startTime+'</td>'+
+                     '<td class="px-4 py-2">'+sc.endTime+'</td>'+
+                     '<td class="px-4 py-2"><button class="btn btn-blue" onclick="openEditModal(\'schedule\', '+sc.id+')">កែសម្រួល</button></td>';
+      listEl.appendChild(tr);
+    });
+  };
+  // Bind scan input to Dexie handler (onScanSuccess) if present
+  const input = document.getElementById('usb-scanner-input');
+  if (input && typeof window.onScanSuccess === 'function') {
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); window.onScanSuccess(input.value); input.value=''; }});
+  }
+})();
+</script>
