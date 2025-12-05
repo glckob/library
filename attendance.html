@@ -846,17 +846,17 @@
 
     // Fetchers
     async function fetchClasses() {
-        const { data, error } = await supabase.from('classes').select('*').eq('user_id', currentUserId).order('class_id');
+        const { data, error } = await window.supabase.from('classes').select('*').eq('user_id', window.currentUserId).order('class_id');
         if (error) throw error; return data || [];
     }
     async function fetchStudents(classId = null) {
-        let q = supabase.from('students').select('*').eq('user_id', currentUserId);
+        let q = window.supabase.from('students').select('*').eq('user_id', window.currentUserId);
         if (classId) q = q.eq('class_id', classId);
         const { data, error } = await q.order('last_name');
         if (error) throw error; return data || [];
     }
     async function fetchSchedules(classId = null) {
-        let q = supabase.from('schedules').select('*').eq('user_id', currentUserId);
+        let q = window.supabase.from('schedules').select('*').eq('user_id', window.currentUserId);
         if (classId) q = q.eq('class_id', classId);
         const { data, error } = await q.order('class_id');
         if (error) throw error; return data || [];
@@ -864,12 +864,12 @@
 
     // Populate selects and tables using Supabase
     window.loadClassesForSelect = async function loadClassesForSelect() {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         let classes = await fetchClasses();
         // Fallback: derive classes from students if classes table is empty
         if (!classes || classes.length === 0) {
             const { data: sdata, error: sErr } = await supabase
-                .from('students').select('class_id').eq('user_id', currentUserId);
+                .from('students').select('class_id').eq('user_id', window.currentUserId);
             if (!sErr) {
                 const defaultYear = localStorage.getItem('settingAcademicYear') || '';
                 const uniq = [...new Set((sdata||[]).map(s => s.class_id).filter(Boolean))];
@@ -920,7 +920,7 @@
 
     // Table renderer for Classes (with fallback derived from students)
     window.loadClassesForTable = async function loadClassesForTable() {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         const classList = document.getElementById('class-list');
         if (!classList) return;
         classList.innerHTML = '<tr><td colspan="4" class="text-center p-4">កំពុងទាញយក...</td></tr>';
@@ -928,7 +928,7 @@
         let classes = await fetchClasses();
         if (!classes || classes.length === 0) {
             const { data: sdata, error: sErr } = await supabase
-                .from('students').select('class_id').eq('user_id', currentUserId);
+                .from('students').select('class_id').eq('user_id', window.currentUserId);
             if (!sErr) {
                 const defaultYear = localStorage.getItem('settingAcademicYear') || '';
                 const uniq = [...new Set((sdata||[]).map(s => s.class_id).filter(Boolean))];
@@ -960,7 +960,7 @@
     }
 
     window.loadStudents = async function loadStudents() {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         const classFilter = document.getElementById('filterStudentClass')?.value || 'all';
         const search = (document.getElementById('searchStudentInput')?.value || '').toLowerCase().trim();
         const sortBy = document.getElementById('sortStudentBy')?.value || 'name';
@@ -992,7 +992,7 @@
     }
 
     window.loadSchedules = async function loadSchedules() {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         const listEl = document.getElementById('schedule-list');
         if (!listEl) return;
         const search = (document.getElementById('searchScheduleInput')?.value || '').toLowerCase().trim();
@@ -1012,14 +1012,14 @@
         }
     }
     async function processScan(code) {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         const input = document.getElementById('usb-scanner-input');
         const statusBox = document.getElementById('scan-result');
         const show = (msg, ok=false) => { if(statusBox){ statusBox.innerHTML = `<div class="p-4 ${ok?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded-lg"><p class="text-lg">${msg}</p></div>`; } };
         try {
             const sid = (code||'').trim(); if (!sid) return;
             // find student
-            const { data: stList, error: e1 } = await supabase.from('students').select('*').eq('user_id', currentUserId).eq('student_id', sid).limit(1);
+            const { data: stList, error: e1 } = await window.supabase.from('students').select('*').eq('user_id', window.currentUserId).eq('student_id', sid).limit(1);
             if (e1) throw e1;
             const student = (stList||[])[0];
             if (!student) { show('រកមិនឃើញសិស្សដោយកូដនេះ'); return; }
@@ -1028,29 +1028,29 @@
             const now = new Date();
             const dow = now.getDay();
             const hhmm = fmtTimeHHMM(now);
-            const { data: scheds, error: e2 } = await supabase.from('schedules').select('*')
-                .eq('user_id', currentUserId).eq('class_id', student.class_id).eq('day_of_week', dow);
+            const { data: scheds, error: e2 } = await window.supabase.from('schedules').select('*')
+                .eq('user_id', window.currentUserId).eq('class_id', student.class_id).eq('day_of_week', dow);
             if (e2) throw e2;
             const active = (scheds||[]).find(s => s.start_time <= hhmm && hhmm <= s.end_time);
             if (!active) { show('ថ្ងៃ/ម៉ោងនេះមិនមានថ្នាក់ (no class)'); return; }
 
             // existing open log for today?
             const today = todayISO();
-            const { data: logs, error: e3 } = await supabase.from('attendance_logs')
+            const { data: logs, error: e3 } = await window.supabase.from('attendance_logs')
                 .select('id, scan_time_in, scan_time_out')
-                .eq('user_id', currentUserId).eq('student_id', student.student_id)
+                .eq('user_id', window.currentUserId).eq('student_id', student.student_id)
                 .eq('class_id', student.class_id).eq('schedule_id', active.id)
                 .eq('attendance_date', today).is('scan_time_out', null).order('created_at', { ascending: false }).limit(1);
             if (e3) throw e3;
             if (logs && logs.length) {
                 // set time out
-                const { error: uerr } = await supabase.from('attendance_logs').update({ scan_time_out: new Date().toISOString() }).eq('id', logs[0].id);
+                const { error: uerr } = await window.supabase.from('attendance_logs').update({ scan_time_out: new Date().toISOString() }).eq('id', logs[0].id);
                 if (uerr) throw uerr;
                 show('បានស្កេនចេញជោគជ័យ!', true);
             } else {
                 // create new log (time in)
-                const { error: ierr } = await supabase.from('attendance_logs').insert({
-                    user_id: currentUserId,
+                const { error: ierr } = await window.supabase.from('attendance_logs').insert({
+                    user_id: window.currentUserId,
                     student_id: student.student_id,
                     student_name: `${student.last_name} ${student.first_name}`,
                     class_id: student.class_id,
@@ -1079,7 +1079,7 @@
 
     // Report loader using agreed status logic
     window.loadReportData = async function loadReportData() {
-        if (!(await ensureAuth())) return;
+        if (!(await window.ensureAuth())) return;
         const repType = (document.querySelector('input[name="reportType"]:checked')?.value) || 'daily';
         const classVal = document.getElementById('reportFilterClass')?.value || '';
         const statusVal = document.getElementById('reportFilterStatus')?.value || 'all';
@@ -1101,7 +1101,7 @@
         const endISO = end.toISOString().slice(0,10);
 
         // Fetch logs
-        let q = supabase.from('attendance_logs').select('*').eq('user_id', currentUserId).gte('attendance_date', startISO).lt('attendance_date', endISO);
+        let q = window.supabase.from('attendance_logs').select('*').eq('user_id', window.currentUserId).gte('attendance_date', startISO).lt('attendance_date', endISO);
         if (classVal) q = q.eq('class_id', classVal);
         const { data: logs, error } = await q.order('attendance_date');
         if (error) { console.error(error); return; }
@@ -1167,7 +1167,7 @@
 
     // Kick off initial auth + data load if page already initialized
     (async () => {
-        if (await ensureAuth()) {
+        if (await window.ensureAuth()) {
             await loadClassesForSelect();
             await loadStudents();
             await loadSchedules();
@@ -1268,5 +1268,32 @@
 })();
 </script>
 
+
+
+
+<script type="module">
+import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
+const supabaseUrl = 'https://bcbwrymhpjcncgiwjllr.window.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYndyeW1ocGpjbmNnaXdqbGxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MDA5MDEsImV4cCI6MjA3MTE3NjkwMX0.ZiU1uF9_5h2N9choQvNihTvKWfqtPlHdvQm2iPaI2jw';
+const supabase = createClient(supabaseUrl, supabaseKey);
+window.supabase = supabase;
+let window.currentUserId = null;
+window.currentUserId = null;
+async function window.ensureAuth() {
+  try {
+    const { data, error } = await window.supabase.auth.getUser();
+    if (error) throw error;
+    const user = data?.user;
+    if (!user) { window.location.href = './index.html'; return false; }
+    window.currentUserId = user.id;
+    window.currentUserId = window.currentUserId;
+    return true;
+  } catch (e) {
+    window.location.href = './index.html';
+    return false;
+  }
+}
+window.ensureAuth = ensureAuth;
+</script>
 
 
