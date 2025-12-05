@@ -299,7 +299,7 @@
                     <div class="flex flex-wrap gap-4">
                         <input type="text" id="searchStudentInput" oninput="loadStudents()" placeholder="ស្វែងរកតាម កូដ, គោតនាម, ឬ នាម..." class="w-full md:w-1/2 flex-grow">
                         <button onclick="confirmDelete('students_all', 0, 'សិស្សទាំងអស់')" class="btn btn-red">លុបសិស្សទាំងអស់</button>
-                        <button type="button" onclick="loadStudents()" class="btn btn-blue">ទាញយកទិន្នន័យសិស្ស</button>
+                        <button type="button" onclick="refreshStudents()" class="btn btn-blue">ទាញយកទិន្នន័យសិស្ស</button>
                     </div>
                 </div>
 
@@ -1164,104 +1164,7 @@
                 addRow(dateISO, s, status, inISO?.substring(11,16), outISO?.substring(11,16));
             }
         }
-    }
-
-    // Kick off initial auth + data load if page already initialized
-    document.addEventListener("DOMContentLoaded", () => { const boot = async () => { if (typeof window.ensureAuth !== "function") { setTimeout(boot, 50); return; } if (await window.ensureAuth()) { if (typeof loadClassesForSelect === "function") await loadClassesForSelect(); if (typeof loadStudents === "function") await loadStudents(); if (typeof loadSchedules === "function") await loadSchedules(); } }; boot(); });
-    </script>
-</body>
-</html>
-
-<script>
-(function(){
-  function offline(){ return !window.currentUserId; }
-  if (!offline() || typeof db === 'undefined') return;
-  // Dexie-based fallback for class selects
-  window.loadClassesForSelect = async function(){
-    try {
-      const classes = await db.classes.toArray();
-      window.allClasses = (classes||[]).map(c => ({ class_id: c.classId, class_name: c.className, academic_year: c.academicYear }));
-      const selects = document.querySelectorAll('.class-select');
-      selects.forEach(sel => {
-        const prev = sel.value;
-        const firstOption = sel.options[0] ? sel.options[0].outerHTML : '<option value="">-- ជ្រើសរើសថ្នាក់ --</option>';
-        sel.innerHTML = firstOption;
-        (window.allClasses||[]).forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c.class_id;
-          opt.textContent = c.class_name + (c.academic_year ? ' ('+c.academic_year+')' : '');
-          sel.appendChild(opt);
-        });
-        if (prev) sel.value = prev;
-      });
-      const repSel = document.getElementById('reportFilterClass');
-      if (repSel) {
-        const prev = repSel.value;
-        repSel.innerHTML = '<option value="none" selected>-- សូមជ្រើសរើសថ្នាក់ --</option><option value="">-- គ្រប់ថ្នាក់រៀន --</option>';
-        (window.allClasses||[]).forEach(c => { const opt = document.createElement('option'); opt.value = c.class_id; opt.textContent = c.class_name; repSel.appendChild(opt); });
-        if (prev) repSel.value = prev;
-      }
-      const rosterSel = document.getElementById('rosterFilterClass');
-      if (rosterSel) {
-        const prev = rosterSel.value;
-        rosterSel.innerHTML = '<option value="none" selected>-- សូមជ្រើសរើសថ្នាក់ --</option>';
-        (window.allClasses||[]).forEach(c => { const opt = document.createElement('option'); opt.value = c.class_id; opt.textContent = c.class_name; rosterSel.appendChild(opt); });
-        if (prev) rosterSel.value = prev;
-      }
-    } catch (e) { return "N/A"; }
-  };
-  // Dexie-based fallback for students
-  window.loadStudents = async function(){
-    const classFilter = (document.getElementById('filterStudentClass')||{}).value || 'all';
-    const search = ((document.getElementById('searchStudentInput')||{}).value || '').toLowerCase().trim();
-    const sortBy = (document.getElementById('sortStudentBy')||{}).value || 'name';
-    const listEl = document.getElementById('student-list'); if (!listEl) return;
-    let students = await db.students.toArray();
-    if (classFilter !== 'all') students = students.filter(s => s.classId === classFilter);
-    if (search) students = students.filter(s => (s.studentId+' '+s.lastName+' '+s.firstName).toLowerCase().includes(search));
-    students.sort((a,b) => sortBy==='class' ? (a.classId||'').localeCompare(b.classId||'') : (a.lastName+' '+a.firstName).localeCompare(b.lastName+' '+b.firstName));
-    listEl.innerHTML = '';
-    const classNameById = new Map(((window.allClasses)||[]).map(c => [c.class_id, c.class_name]));
-    students.forEach(s => {
-      const tr = document.createElement('tr'); tr.className='border-b';
-      const photo = s.photoUrl ? '<img src="'+s.photoUrl+'" class="h-10 w-10 object-cover rounded"/>' : '';
-      const age = (typeof window.calculateAge==='function' && s.dob) ? window.calculateAge(s.dob) : '';
-      const classLabel = classNameById.get(s.classId) || s.classId || '';
-      tr.innerHTML = '<td class="px-4 py-2">'+photo+'</td>'+
-                     '<td class="px-4 py-2">'+s.studentId+'</td>'+
-                     '<td class="px-4 py-2">'+s.lastName+' '+s.firstName+'</td>'+
-                     '<td class="px-4 py-2">'+(s.gender||'')+'</td>'+
-                     '<td class="px-4 py-2">'+age+'</td>'+
-                     '<td class="px-4 py-2">'+classLabel+'</td>'+
-                     '<td class="px-4 py-2"><button class="btn btn-blue" onclick="openEditModal(\'student\', '+s.id+')">កែសម្រួល</button></td>';
-      listEl.appendChild(tr);
-    });
-  };
-  // Dexie-based fallback for schedules
-  window.loadSchedules = async function(){
-    const listEl = document.getElementById('schedule-list'); if (!listEl) return;
-    const search = ((document.getElementById('searchScheduleInput')||{}).value || '').toLowerCase().trim();
-    let items = await db.schedule.toArray();
-    if (search) items = items.filter(x => (x.classId||'').toLowerCase().includes(search));
-    listEl.innerHTML='';
-    const dayMap = {0:'អាទិត្យ',1:'ច័ន្ទ',2:'អង្គារ',3:'ពុធ',4:'ព្រហស្បតិ៍',5:'សុក្រ',6:'សៅរ៍'};
-    items.forEach(sc => {
-      const tr = document.createElement('tr'); tr.className='border-b';
-      tr.innerHTML = '<td class="px-4 py-2">'+(sc.classId||'')+'</td>'+
-                     '<td class="px-4 py-2">'+dayMap[sc.dayOfWeek]+'</td>'+
-                     '<td class="px-4 py-2">'+sc.startTime+'</td>'+
-                     '<td class="px-4 py-2">'+sc.endTime+'</td>'+
-                     '<td class="px-4 py-2"><button class="btn btn-blue" onclick="openEditModal(\'schedule\', '+sc.id+')">កែសម្រួល</button></td>';
-      listEl.appendChild(tr);
-    });
-  };
-  // Bind scan input to Dexie handler (onScanSuccess) if present
-  const input = document.getElementById('usb-scanner-input');
-  if (input && typeof window.onScanSuccess === 'function') {
-    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); window.onScanSuccess(input.value); input.value=''; }});
-  }
-})();
-</script>
+    }\r\n</script>
 
 
 
@@ -1293,3 +1196,26 @@ window.ensureAuth = ensureAuth;
 
 
 
+<script>
+window.refreshStudents = async function refreshStudents(){
+  try {
+    if (typeof window.ensureAuth !== 'function') { console.warn('ensureAuth not ready'); return; }
+    const ok = await window.ensureAuth();
+    if (!ok) return;
+    if (typeof loadClassesForSelect === 'function') await loadClassesForSelect();
+    if (typeof loadStudents === 'function') await loadStudents();
+  } catch(e) { console.error('refreshStudents error', e); }
+};
+// Deferred bootstrap after module is loaded
+window.addEventListener('DOMContentLoaded', () => {
+  const boot = async () => {
+    if (typeof window.ensureAuth !== 'function') { setTimeout(boot, 50); return; }
+    if (await window.ensureAuth()) {
+      if (typeof loadClassesForSelect === 'function') await loadClassesForSelect();
+      if (typeof loadStudents === 'function') await loadStudents();
+      if (typeof loadSchedules === 'function') await loadSchedules();
+    }
+  };
+  boot();
+});
+</script>
