@@ -248,7 +248,7 @@
         <div id="page-manage-student" class="page-content">
             <h1 class="text-3xl font-bold mb-6 text-gray-800 font-title">គ្រប់គ្រងសិស្ស</h1>
             <!-- ... Form បញ្ចូលសិស្ស ... -->
-            <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-6" style="display: none;">
                 <h2 class="text-xl font-semibold mb-4 font-title">បញ្ចូលសិស្សថ្មី</h2>
                 <form id="addStudentForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <input type="text" id="studentId" placeholder="កូដសិស្ស (សម្រាប់ QR)" class="md:col-span-1" required>
@@ -2689,14 +2689,14 @@
             if (error) throw error;
             const user = data?.user;
             if (!user) {
-                window.location.href = './index.html';
-                return false;
+                currentUserId = null;
+                return true;
             }
             currentUserId = user.id;
             return true;
         } catch (e) {
-            window.location.href = './index.html';
-            return false;
+            currentUserId = null;
+            return true;
         }
     }
 
