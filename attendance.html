@@ -299,6 +299,7 @@
                     <div class="flex flex-wrap gap-4">
                         <input type="text" id="searchStudentInput" oninput="loadStudents()" placeholder="ស្វែងរកតាម កូដ, គោតនាម, ឬ នាម..." class="w-full md:w-1/2 flex-grow">
                         <button onclick="confirmDelete('students_all', 0, 'សិស្សទាំងអស់')" class="btn btn-red">លុបសិស្សទាំងអស់</button>
+                        <button type="button" onclick="loadStudents()" class="btn btn-blue">ទាញយកទិន្នន័យសិស្ស</button>
                     </div>
                 </div>
 
@@ -1166,13 +1167,7 @@
     }
 
     // Kick off initial auth + data load if page already initialized
-    (async () => {
-        if (await window.ensureAuth()) {
-            await loadClassesForSelect();
-            await loadStudents();
-            await loadSchedules();
-        }
-    })();
+    document.addEventListener("DOMContentLoaded", () => { const boot = async () => { if (typeof window.ensureAuth !== "function") { setTimeout(boot, 50); return; } if (await window.ensureAuth()) { if (typeof loadClassesForSelect === "function") await loadClassesForSelect(); if (typeof loadStudents === "function") await loadStudents(); if (typeof loadSchedules === "function") await loadSchedules(); } }; boot(); });
     </script>
 </body>
 </html>
@@ -1273,20 +1268,20 @@
 
 <script type="module">
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
-const supabaseUrl = 'https://bcbwrymhpjcncgiwjllr.window.supabase.co';
+const supabaseUrl = 'https://bcbwrymhpjcncgiwjllr.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYndyeW1ocGpjbmNnaXdqbGxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MDA5MDEsImV4cCI6MjA3MTE3NjkwMX0.ZiU1uF9_5h2N9choQvNihTvKWfqtPlHdvQm2iPaI2jw';
 const supabase = createClient(supabaseUrl, supabaseKey);
 window.supabase = supabase;
-let window.currentUserId = null;
+let currentUserId = null;
 window.currentUserId = null;
-async function window.ensureAuth() {
+async function ensureAuth() {
   try {
     const { data, error } = await window.supabase.auth.getUser();
     if (error) throw error;
     const user = data?.user;
     if (!user) { window.location.href = './index.html'; return false; }
     window.currentUserId = user.id;
-    window.currentUserId = window.currentUserId;
+
     return true;
   } catch (e) {
     window.location.href = './index.html';
@@ -1295,5 +1290,6 @@ async function window.ensureAuth() {
 }
 window.ensureAuth = ensureAuth;
 </script>
+
 
 
