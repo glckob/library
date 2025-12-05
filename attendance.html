@@ -837,10 +837,7 @@
                 const m = today.getMonth() - dob.getMonth();
                 if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) { age--; }
                 return age;
-            } catch (e) {
-            window.location.href = './index.html';
-            return false;
-        }
+            } catch (e) { return "N/A"; }
     }
 
     // --- Helpers ---
@@ -1014,9 +1011,8 @@
             listEl.appendChild(tr);
         }
     }
-
-    // Scan handler: Enter triggers upsert into attendance_logs
-
+    async function processScan(code) {
+        if (!(await ensureAuth())) return;
         const input = document.getElementById('usb-scanner-input');
         const statusBox = document.getElementById('scan-result');
         const show = (msg, ok=false) => { if(statusBox){ statusBox.innerHTML = `<div class="p-4 ${ok?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} rounded-lg"><p class="text-lg">${msg}</p></div>`; } };
@@ -1217,7 +1213,7 @@
         (window.allClasses||[]).forEach(c => { const opt = document.createElement('option'); opt.value = c.class_id; opt.textContent = c.class_name; rosterSel.appendChild(opt); });
         if (prev) rosterSel.value = prev;
       }
-    } catch(e){ console.error(e); }
+    } catch (e) { return "N/A"; }
   };
   // Dexie-based fallback for students
   window.loadStudents = async function(){
@@ -1271,5 +1267,6 @@
   }
 })();
 </script>
+
 
 
