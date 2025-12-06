@@ -1,4 +1,4 @@
-﻿// --- CONFIGURATION ---
+// --- CONFIGURATION ---
 const SUPABASE_URL = 'https://bcbwrymhpjcncgiwjllr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYndyeW1ocGpjbmNnaXdqbGxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MDA5MDEsImV4cCI6MjA3MTE3NjkwMX0.ZiU1uF9_5h2N9choQvNihTvKWfqtPlHdvQm2iPaI2jw';
 
@@ -7,6 +7,7 @@ let supabase = null;
 let session = null;
 let isProcessing = false;
 let currentView = 'dashboard';
+let allStudentsCache = []; // Cache for students search
 
 // --- INIT ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -465,6 +466,108 @@ window.loadStudents = loadStudents;
 window.loadClasses = loadClasses;
 window.loadSchedules = loadSchedules;
 window.fetchTodaysLogs = fetchTodaysLogs;
+
+// --- BACKUP & RESTORE UTILS (NEW) ---
+window.backupData = async function(tableName) {
+    try {
+        if (!session) return;
+        
+        // Show indicator
+        const btnText = event.target.innerText;
+        event.target.innerText = "Backing up...";
+        event.target.disabled = true;
+
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('user_id', session.user.id)
+            .limit(100000);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            alert('មិនមានទិន្នន័យសម្រាប់ Backup ទេ');
+            return;
+        }
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `${tableName}_backup_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error(err);
+        alert("Backup failed: " + err.message);
+    } finally {
+        // Reset button
+        if(event.target) {
+            event.target.disabled = false;
+            event.target.innerText = "Backup";
+        }
+    }
+}
+
+window.triggerRestore = function(tableName) {
+    const inputId = `restore-${tableName}-input`;
+    const input = document.getElementById(inputId);
+    if(input) {
+        // Clear previous value so change event fires even if same file selected
+        input.value = '';
+        input.click();
+        
+        // Remove old listener to avoid duplicates
+        const newClone = input.cloneNode(true);
+        input.parentNode.replaceChild(newClone, input);
+        
+        newClone.addEventListener('change', (e) => handleRestoreFile(e, tableName));
+    }
+}
+
+async function handleRestoreFile(event, tableName) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!confirm(`តើអ្នកពិតជាចង់ Restore ទិន្នន័យ ${tableName} មែនទេ? ទិន្នន័យចាស់នឹងត្រូវបានធ្វើបច្ចុប្បន្នភាព។`)) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const jsonData = JSON.parse(e.target.result);
+            if (!Array.isArray(jsonData)) throw new Error("Invalid format: Root must be an array");
+
+            // Sanitize: ensure user_id matches current session to prevent accidents
+            const safeData = jsonData.map(item => {
+                return { ...item, user_id: session.user.id };
+            });
+
+            // Batch Upsert (Supabase handles upsert if ID exists)
+            const { error } = await supabase
+                .from(tableName)
+                .upsert(safeData);
+
+            if (error) throw error;
+
+            alert("Restore ជោគជ័យ!");
+            
+            // Reload View
+            if (tableName === 'schedules') loadSchedules();
+            if (tableName === 'attendance_logs') loadReport();
+
+        } catch (err) {
+            console.error(err);
+            alert("Restore failed: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+}
 
 // --- CORE FUNCTIONS (Changed to Function Declarations to Fix Hoisting) ---
 
@@ -1033,11 +1136,28 @@ function setupEventListeners() {
             document.getElementById('scanner-input')?.focus();
         }
     });
+
+    // --- STUDENT SEARCH LISTENER ---
+    const searchInput = document.getElementById('student-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            if (!allStudentsCache || allStudentsCache.length === 0) return;
+            
+            const filtered = allStudentsCache.filter(st => {
+                const name = (st.last_name + ' ' + st.first_name).toLowerCase();
+                const id = st.student_id.toString().toLowerCase();
+                return name.includes(term) || id.includes(term);
+            });
+            
+            renderStudents(filtered);
+        });
+    }
 }
 
 // --- DATA FETCHING (OPTIMIZED) ---
 
-// 1. Students
+// 1. Students (UPDATED for Search)
 async function loadStudents() {
     const tbody = document.getElementById('students-table-body');
     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center"><div class="spinner w-6 h-6 mx-auto border-blue-500"></div></td></tr>';
@@ -1054,12 +1174,18 @@ async function loadStudents() {
         return;
     }
 
-    if (!data || data.length === 0) {
+    allStudentsCache = data || []; // Cache the data
+    renderStudents(allStudentsCache);
+}
+
+function renderStudents(list) {
+    const tbody = document.getElementById('students-table-body');
+    if (!list || list.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">មិនមានទិន្នន័យសិស្ស</td></tr>';
         return;
     }
 
-    tbody.innerHTML = data.map(st => `
+    tbody.innerHTML = list.map(st => `
         <tr class="bg-white border-b hover:bg-gray-50 text-base">
             <td class="px-6 py-4 font-medium font-mono text-blue-600">${st.student_id}</td>
             <td class="px-6 py-4 text-gray-800">${st.last_name} ${st.first_name}</td>
