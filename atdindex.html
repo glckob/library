@@ -1,0 +1,428 @@
+﻿<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>វត្តមានខ្ញុំ</title>
+    
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- App Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="atdstyle.css">
+    
+    <!-- Force Remove All Bold Text & Print Styles -->
+    <style>
+        body, h1, h2, h3, h4, h5, h6, p, div, span, button, input, select, option, label, th, td, .font-bold, .font-semibold, .font-medium, b, strong, .nav-btn.active {
+            font-weight: normal !important;
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            @page { 
+                size: A4 portrait; 
+                margin: 0.5cm; 
+            }
+            
+            body { 
+                background: white; 
+                -webkit-print-color-adjust: exact; 
+                font-family: 'Siemreap', sans-serif;
+                color: black;
+            }
+
+            /* Hide non-printable elements */
+            header, nav, #loading-screen, #auth-screen, #dash-alert, .no-print, .print-hidden, #view-reports .flex-col > .bg-white { 
+                display: none !important; 
+            }
+
+            /* Show Print Header */
+            #print-header { 
+                display: block !important; 
+            }
+
+            /* Layout Fixes */
+            .view-section:not(.hidden) { display: block !important; }
+            .view-section.hidden { display: none !important; }
+            
+            /* Table Scaling to Fit A4 Portrait */
+            #view-reports {
+                width: 100%;
+                overflow: visible;
+            }
+
+            .overflow-x-auto { 
+                overflow: visible !important; 
+            }
+
+            table { 
+                width: 100% !important; 
+                border-collapse: collapse; 
+                font-size: 10px !important; /* Small font to fit 52 rows */
+                table-layout: auto;
+            }
+
+            thead {
+                display: table-header-group; /* Repeat header on new pages */
+            }
+
+            tr {
+                page-break-inside: avoid; /* Don't cut rows in half */
+                height: 18px; /* Force tight rows */
+            }
+
+            th, td { 
+                border: 1px solid #000 !important; 
+                padding: 2px 4px !important; /* Tight padding */
+                white-space: nowrap;
+            }
+            
+            /* Header Styling */
+            thead th {
+                background-color: #f0f0f0 !important;
+                color: black !important;
+                font-weight: bold !important; /* Allowed in print for readability */
+                height: 25px;
+            }
+
+            /* Clean up UI elements for print */
+            .bg-blue-100, .bg-red-100, .bg-orange-100, .bg-gray-100 {
+                background-color: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            
+            .lucide {
+                width: 10px;
+                height: 10px;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+        <div class="spinner w-8 h-8"></div>
+        <span class="text-gray-500 font-medium animate-pulse">កំពុងដំណើរការ...</span>
+    </div>
+    
+    <!-- Main Application Container -->
+    <div id="main-app" class="hidden min-h-screen bg-gray-100 flex flex-col">
+        
+        <!-- Navigation Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+            <div class="max-w-5xl mx-auto px-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between py-3">
+                    <div class="flex items-center justify-between w-full md:w-auto mb-3 md:mb-0">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-blue-600 p-2 rounded-lg">
+                                <i data-lucide="user-check" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-lg leading-none font-moul text-blue-700">ទំព័រស្កេនវត្តមាន</h1>
+                                <span class="text-xs text-gray-500">USB Scanner Mode</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <nav class="flex space-x-1 overflow-x-auto pb-1 md:pb-0">
+                        <button onclick="switchTab('dashboard')" class="nav-btn active px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2" id="nav-dashboard">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>ស្កេនវត្តមាន
+                        </button>
+                        <button onclick="switchTab('students')" class="nav-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2" id="nav-students">
+                            <i data-lucide="graduation-cap" class="w-4 h-4"></i> ទិន្នន័យសិស្ស
+                        </button>
+                        <button onclick="switchTab('classes')" class="nav-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2" id="nav-classes">
+                            <i data-lucide="users" class="w-4 h-4"></i> ថ្នាក់រៀន
+                        </button>
+                        <button onclick="switchTab('schedules')" class="nav-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2" id="nav-schedules">
+                            <i data-lucide="calendar-clock" class="w-4 h-4"></i> កាលវិភាគ
+                        </button>
+                        <button onclick="switchTab('reports')" class="nav-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2" id="nav-reports">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> របាយការណ៍
+                        </button>
+                        <a href="index.html" class="ml-2 px-3 py-2 text-gray-500 hover:text-blue-600 transition-colors" title="ទំព័រដើម"><i data-lucide="home" class="w-5 h-5"></i></a>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 max-w-5xl mx-auto w-full p-4">
+            
+            <!-- Global Alert Box -->
+            <div id="dash-alert" class="hidden mb-4 cursor-pointer fixed top-20 right-4 z-50 max-w-sm animate-bounce-in">
+                <div id="dash-alert-content" class="flex items-center p-4 rounded-lg border shadow-lg">
+                    <i id="dash-alert-icon" data-lucide="alert-circle" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+                    <span id="dash-alert-msg" class="text-sm font-medium"></span>
+                </div>
+            </div>
+
+            <!-- VIEW: DASHBOARD -->
+            <div id="view-dashboard" class="view-section space-y-6">
+                <!-- Stats Row -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs uppercase mb-1">កាលបរិច្ឆេទ</div>
+                        <div class="text-lg" id="current-date">--/--/--</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs uppercase mb-1">ចំនួនស្កេននៅថ្ងៃនេះ</div>
+                        <div class="text-lg text-blue-600" id="total-scans">0</div>
+                    </div>
+                </div>
+
+                <!-- USB Scanner Input Area -->
+                <div class="bg-white rounded-xl shadow-md border border-blue-100 p-6 text-center">
+                    <div class="mb-4">
+                        <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="scan-barcode" class="w-8 h-8 text-blue-600"></i>
+                        </div>
+                        <h2 class="text-xl text-gray-800 font-moul">ត្រៀមស្កេន</h2>
+                        <p class="text-gray-500 text-sm">សូមដាក់កាតសំគាល់ខ្លួនរបស់អ្នក ពីមុខពន្លឺរបស់ម៉ាស៊ីនស្កេន</p>
+                    </div>
+                    
+                    <form id="scanner-form" class="max-w-md mx-auto relative">
+                        <input type="text" id="scanner-input" 
+                            class="w-full text-center text-2xl font-mono tracking-wider py-3 px-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder-gray-300" 
+                            placeholder="អត្តលេខសិស្ស" 
+                            autocomplete="off" autofocus>
+                        <div class="mt-2 text-xs text-gray-400">ចុច Enter ឬ ស្កេនកូដ</div>
+                    </form>
+                </div>
+
+                <!-- Recent Activity Feed -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h3 class="text-gray-700 font-moul text-sm">វត្តមានថ្មីៗ</h3>
+                        <button onclick="fetchTodaysLogs()" class="text-xs text-blue-600 hover:underline">ផ្ទុកឡើងវិញ</button>
+                    </div>
+                    <div id="activity-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                        <!-- Logs injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: STUDENTS -->
+            <div id="view-students" class="view-section hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl text-gray-800 font-moul">បញ្ជីឈ្មោះសិស្ស</h2>
+                    <button onclick="loadStudents()" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200" title="ផ្ទុកឡើងវិញ">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3">អត្តលេខ</th>
+                                    <th class="px-6 py-3">ឈ្មោះ</th>
+                                    <th class="px-6 py-3">ភេទ</th>
+                                    <th class="px-6 py-3">ថ្នាក់</th>
+                                    <th class="px-6 py-3">ថ្ងៃខែឆ្នាំកំណើត</th>
+                                </tr>
+                            </thead>
+                            <tbody id="students-table-body">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: CLASSES -->
+            <div id="view-classes" class="view-section hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl text-gray-800 font-moul">ថ្នាក់រៀន</h2>
+                    <button onclick="loadClasses()" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200" title="ផ្ទុកឡើងវិញ">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 w-1/2">ថ្នាក់</th>
+                                    <th class="px-6 py-3 w-1/2">ចំនួនសិស្សសរុប</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classes-table-body">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: SCHEDULES -->
+            <div id="view-schedules" class="view-section hidden space-y-6">
+                 <div class="flex justify-between items-center">
+                    <h2 class="text-xl text-gray-800 font-moul">កាលវិភាគសិក្សា</h2>
+                    <div class="flex gap-2">
+                        <!-- Add Schedule Button -->
+                        <button onclick="openScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                            <i data-lucide="plus" class="w-4 h-4"></i> បន្ថែមកាលវិភាគថ្មី
+                        </button>
+                        <button onclick="loadSchedules()" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200" title="ផ្ទុកឡើងវិញ">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3">ថ្នាក់</th>
+                                    <th class="px-6 py-3">ថ្ងៃ</th>
+                                    <th class="px-6 py-3">ម៉ោងចូល</th>
+                                    <th class="px-6 py-3">ម៉ោងចេញ</th>
+                                    <th class="px-6 py-3 text-right">សកម្មភាព</th>
+                                </tr>
+                            </thead>
+                            <tbody id="schedules-table-body">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: REPORTS (UPDATED) -->
+            <div id="view-reports" class="view-section hidden space-y-6">
+                <!-- PRINT HEADER (Hidden on Screen, Visible on Print) -->
+                <div id="print-header" class="hidden text-center mb-6" style="display:none;">
+                    <h3 class="text-xl font-moul">ព្រះរាជាណាចក្រកម្ពុជា</h3>
+                    <h4 class="text-lg font-moul mb-4">ជាតិ សាសនា ព្រះមហាក្សត្រ</h4>
+                    
+                    <h2 class="text-xl font-moul mt-6 text-blue-800" id="print-title">របាយការណ៍វត្តមាន</h2>
+                    <!-- UPDATED: Added Subject -->
+                    <h3 class="text-lg font-moul text-blue-800 mt-1">មុខវិជ្ជា៖ IT</h3>
+                    <p class="text-sm font-medium mt-2" id="print-subtitle">ថ្នាក់... ប្រចាំ...</p>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <h2 class="text-xl text-gray-800 font-moul no-print">របាយការណ៍វត្តមាន</h2>
+                    
+                    <!-- Filter Controls (Hidden on Print) -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-end no-print">
+                        <!-- Report Type -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">ប្រភេទ</label>
+                            <select id="report-type" onchange="toggleReportDateInput()" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="daily">ប្រចាំថ្ងៃ</option>
+                                <option value="monthly">ប្រចាំខែ</option>
+                            </select>
+                        </div>
+
+                        <!-- Date Inputs (Toggled) -->
+                        <div id="report-daily-input">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">កាលបរិច្ឆេទ</label>
+                            <!-- Added onchange -->
+                            <input type="date" id="report-date" onchange="loadReport()" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div id="report-monthly-input" class="hidden">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">ខែ</label>
+                            <!-- Added onchange -->
+                            <input type="month" id="report-month" onchange="loadReport()" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+
+                        <!-- Class Filter -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">ថ្នាក់</label>
+                            <!-- Added onchange -->
+                            <select id="report-class" onchange="loadReport()" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-[150px]">
+                                <option value="">សូមជ្រើសរើសថ្នាក់</option>
+                            </select>
+                        </div>
+
+                        <!-- NEW: Print Button -->
+                        <button onclick="printReport()" class="bg-gray-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors h-[38px] flex items-center gap-2">
+                            <i data-lucide="printer" class="w-4 h-4"></i> បោះពុម្ព
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead id="report-table-head" class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr id="report-table-head-row">
+                                <th class="px-6 py-3">កាលបរិច្ឆេទ</th>
+                                <th class="px-6 py-3">ឈ្មោះ</th>
+                                <th class="px-6 py-3">ភេទ</th>
+                                <th class="px-6 py-3">ថ្នាក់</th>
+                                <th class="px-6 py-3">ម៉ោងចូល</th>
+                                <th class="px-6 py-3">ម៉ោងចេញ</th>
+                                <th class="px-6 py-3">ស្ថានភាព</th>
+                                <th class="px-6 py-3 text-right">សកម្មភាព</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body">
+                            <!-- Data injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- SCHEDULE MODAL (NEW) -->
+    <div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl transform transition-all scale-100">
+            <!-- UPDATED: Added id to title -->
+            <h3 id="modal-title" class="text-xl text-gray-900 mb-4 font-moul">បន្ថែមកាលវិភាគថ្មី</h3>
+            <form id="add-schedule-form" class="space-y-4">
+                <!-- UPDATED: Hidden Input for Editing -->
+                <input type="hidden" id="sch-id">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ថ្នាក់</label>
+                    <select id="sch-class-id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">កំពុងផ្ទុក...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ថ្ងៃនៃសប្ដាហ៍</label>
+                    <select id="sch-day" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="1">ចន្ទ</option>
+                        <option value="2">អង្គារ</option>
+                        <option value="3">ពុធ</option>
+                        <option value="4">ព្រហស្បតិ៍</option>
+                        <option value="5">សុក្រ</option>
+                        <option value="6">សៅរ៍</option>
+                        <option value="0">អាទិត្យ</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ម៉ោងចូល</label>
+                        <input type="time" id="sch-start" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ម៉ោងចេញ</label>
+                        <input type="time" id="sch-end" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6 pt-2">
+                    <button type="button" onclick="closeScheduleModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">បោះបង់</button>
+                    <button type="submit" id="save-sch-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">រក្សាទុក</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script src="atdapp.js"></script>
+</body>
+</html>

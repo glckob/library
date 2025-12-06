@@ -1,0 +1,52 @@
+/* Import Khmer Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Moul&family=Siemreap&display=swap');
+
+body {
+    font-family: 'Siemreap', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f3f4f6;
+}
+
+/* Header Font Class */
+.font-moul {
+    font-family: 'Moul', serif;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Nav Active State */
+.nav-btn.active {
+    background-color: #ebf5ff; /* blue-50 */
+    color: #2563eb; /* blue-600 */
+    font-weight: bold;
+}
+
+/* Spinner */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 3px solid #3b82f6;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom Table Styles */
+td, th {
+    white-space: nowrap;
+}
